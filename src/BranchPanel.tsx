@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message } from "./conversationStore"
-import { ChevronLeft, ChevronRight, Plus, Camera, GitBranch } from "lucide-react"
+import { Plus, Camera, GitBranch } from "lucide-react"
 
 interface BranchPanelProps {
   currentBranch: Branch | null
@@ -12,7 +12,6 @@ interface BranchPanelProps {
   messages: Message[]
   isDark: boolean
   expandedView: boolean
-  onToggleExpand: () => void
 }
 
 export function BranchPanel({ 
@@ -21,8 +20,7 @@ export function BranchPanel({
   onCreateBranch, 
   messages, 
   isDark, 
-  expandedView, 
-  onToggleExpand 
+  expandedView 
 }: BranchPanelProps) {
   const [branches, setBranches] = useState<Branch[]>([])
   const [showNewBranchDialog, setShowNewBranchDialog] = useState(false)
@@ -57,23 +55,12 @@ export function BranchPanel({
 
   return (
     <div
-      className={`transition-all duration-500 ${expandedView ? "w-80" : "w-16"} ${
-        isDark ? "bg-black/20 border-white/10" : "bg-white/20 border-black/10"
-      } backdrop-blur-xl border-r relative`}
+      className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out ${
+        expandedView ? 'translate-x-0' : '-translate-x-full'
+      } w-80 ${isDark ? 'bg-black/90' : 'bg-white/95'} backdrop-blur-xl border-r ${
+        isDark ? 'border-white/10' : 'border-black/10'
+      }`}
     >
-      {/* Collapse/Expand Button */}
-      <button
-        onClick={onToggleExpand}
-        className={`w-full p-4 transition-all duration-300 ${
-          isDark ? "hover:bg-white/10 text-gray-300" : "hover:bg-black/10 text-gray-700"
-        } flex items-center justify-center group`}
-      >
-        {expandedView ? (
-          <ChevronLeft className="w-5 h-5 group-hover:scale-110 transition-transform" />
-        ) : (
-          <ChevronRight className="w-5 h-5 group-hover:scale-110 transition-transform" />
-        )}
-      </button>
 
       {expandedView && (
         <div className="p-6">

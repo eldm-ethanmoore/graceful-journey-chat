@@ -231,7 +231,6 @@ function App() {
           messages={messages}
           isDark={isDark}
           expandedView={isSidebarExpanded}
-          onToggleExpand={() => setIsSidebarExpanded(!isSidebarExpanded)}
         />
       )}
 
