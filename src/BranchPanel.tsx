@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message } from "./conversationStore"
 import { Plus, Camera, GitBranch } from "lucide-react"
@@ -12,6 +12,7 @@ interface BranchPanelProps {
   messages: Message[]
   isDark: boolean
   expandedView: boolean
+  onClose: () => void
 }
 
 export function BranchPanel({ 
@@ -20,8 +21,28 @@ export function BranchPanel({
   onCreateBranch, 
   messages, 
   isDark, 
-  expandedView 
+  expandedView, 
+  onClose
 }: BranchPanelProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+
+    if (expandedView) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [expandedView, onClose]);
+
   const [branches, setBranches] = useState<Branch[]>([])
   const [showNewBranchDialog, setShowNewBranchDialog] = useState(false)
   const [newBranchName, setNewBranchName] = useState("")
@@ -55,6 +76,7 @@ export function BranchPanel({
 
   return (
     <div
+      ref={panelRef}
       className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out ${
         expandedView ? 'translate-x-0' : '-translate-x-full'
       } w-80 ${isDark ? 'bg-black/90' : 'bg-white/95'} backdrop-blur-xl border-r ${

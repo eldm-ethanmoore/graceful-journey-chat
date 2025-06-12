@@ -231,6 +231,7 @@ function App() {
           messages={messages}
           isDark={isDark}
           expandedView={isSidebarExpanded}
+          onClose={() => setIsSidebarExpanded(false)}
         />
       )}
 
