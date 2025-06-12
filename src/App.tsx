@@ -383,7 +383,7 @@ function App() {
   const TEE_MODELS = [
     { id: "phala/llama-3.3-70b-instruct", name: "Llama 3.3 70B", description: "Fast & multilingual" },
     { id: "phala/deepseek-r1-70b", name: "DeepSeek R1 70B", description: "Advanced reasoning" },
-    { id: "phala/qwen2.5-7b-instruct", name: "Qwen 2.5 7B", description: "Efficient & capable" },
+    { id: "phala/qwen-2.5-7b-instruct", name: "Qwen 2.5 7B", description: "Efficient & capable" },
   ]
 
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
