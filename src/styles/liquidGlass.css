@@ -1,0 +1,107 @@
+/* LIQUID GLASS STYLES */
+
+.liquidGlass-wrapper {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 2.2);
+}
+
+.liquidGlass-effect {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  backdrop-filter: blur(5px);
+  filter: url(#glass-distortion);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.liquidGlass-tint {
+  z-index: 1;
+  position: absolute;
+  inset: 0;
+}
+
+/* Dark mode tint */
+.dark .liquidGlass-tint {
+  background: rgba(46, 204, 113, 0.08);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+/* Light mode tint */
+.light .liquidGlass-tint {
+  background: rgba(84, 173, 149, 0.08);
+  border: 1px solid rgba(84, 173, 149, 0.3);
+}
+
+.liquidGlass-shine {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.3),
+    inset -1px -1px 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.liquidGlass-content {
+  z-index: 3;
+  position: relative;
+  width: 100%;
+}
+
+/* Chat box specific styles */
+.chat-box.liquidGlass-wrapper {
+  border-radius: 1rem;
+  min-height: 0;
+}
+
+.chat-box .liquidGlass-effect,
+.chat-box .liquidGlass-tint,
+.chat-box .liquidGlass-shine {
+  border-radius: inherit;
+}
+
+/* Dark mode chat box */
+.dark.chat-box .liquidGlass-tint {
+  background: rgba(47, 47, 47, 0.6);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+/* Light mode chat box */
+.light.chat-box .liquidGlass-tint {
+  background: rgba(240, 248, 255, 0.6);
+  border: 1px solid rgba(84, 173, 149, 0.3);
+}
+
+/* Settings panel specific styles */
+.settings-panel.liquidGlass-wrapper {
+  border-radius: 0.75rem;
+}
+
+.settings-panel .liquidGlass-effect,
+.settings-panel .liquidGlass-tint,
+.settings-panel .liquidGlass-shine {
+  border-radius: inherit;
+}
+
+/* Dark mode settings panel */
+.dark.settings-panel .liquidGlass-tint {
+  background: rgba(51, 51, 51, 0.6);
+}
+
+/* Light mode settings panel */
+.light.settings-panel .liquidGlass-tint {
+  background: rgba(240, 248, 255, 0.6);
+}
+
+/* Animation for subtle movement */
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-2px); }
+}
+
+.liquidGlass-effect {
+  animation: subtle-float 8s ease-in-out infinite;
+}

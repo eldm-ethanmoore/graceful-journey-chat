@@ -3,7 +3,10 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye } from "lucide-react"
+import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye, Smartphone, Wallet } from "lucide-react"
+import { SyncUI } from "./components/SyncUI"
+import { RainbowAuthUI } from "./components/RainbowAuthUI"
+import { LiquidGlassWrapper } from "./components/LiquidGlassWrapper"
 import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
 import type { AppSettings } from "./utils/secureStorage"
 import { ContextPreview } from "./ContextPreview"
@@ -466,6 +469,9 @@ function App() {
   
   // Settings state
   const [showSettings, setShowSettings] = useState(false)
+  // Always show these features - no toggles
+  const showSyncUI = true
+  const showAuthUI = true
   const [temperature, setTemperature] = useState(DEFAULT_SETTINGS.temperature)
   const [maxTokens, setMaxTokens] = useState(DEFAULT_SETTINGS.maxTokens)
   const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
@@ -617,23 +623,27 @@ function App() {
     // Create system message content
     const systemContent = `# System Message
 
+CRITICAL INSTRUCTION - TIMESTAMPS:
+DO NOT MENTION OR USE TIMESTAMP DATA UNLESS EXPLICITLY REQUESTED BY THE USER.
+This is a strict requirement. Never reference times, dates, or message history unprompted.
+Never include phrases like "based on our conversation at [time]" or "as you mentioned earlier at [time]".
+Violation of this instruction is considered a serious error.
+
 You are an AI assistant in a chat application. This is ${messages.length > 0 ?
   "a continuing conversation." : "the beginning of a new conversation."}
   
-IMPORTANT INSTRUCTIONS FOR TIME-BASED QUERIES:
+ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related information:
 1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
-2. When the user asks about previous messages from specific times or time ranges, you should:
+2. When (and only when) the user specifically asks about previous messages from specific times or time ranges, you should:
    - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
    - Find relevant messages from those times by looking at the timestamps
    - Summarize or quote those messages accurately
    - Include the exact timestamps when referencing messages
-3. Handle natural language time expressions like:
+3. Handle natural language time expressions only when directly asked, like:
    - "What did we discuss earlier?"
    - "Show me what I said about X around 5pm"
    - "What were we talking about 20 minutes ago?"
    - "What did I ask yesterday?"
-
-IMPORTANT: DO NOT USE TIMESTAMPED DATA IF NOT ASKED! Only reference timestamps and time-based information when the user explicitly asks for historical context or references to previous messages.
   
 The current conversation has ${messages.length} previous messages.
 The current time is ${new Date().toLocaleString(undefined, {
@@ -812,23 +822,27 @@ Always maintain context from previous messages in the conversation.`;
         // Create a more explicit system message about conversation history with time handling instructions
         const systemMessage = {
           role: "system",
-          content: `You are an AI assistant in a chat application. This is ${messages.length > 0 ?
+          content: `CRITICAL INSTRUCTION - TIMESTAMPS:
+DO NOT MENTION OR USE TIMESTAMP DATA UNLESS EXPLICITLY REQUESTED BY THE USER.
+This is a strict requirement. Never reference times, dates, or message history unprompted.
+Never include phrases like "based on our conversation at [time]" or "as you mentioned earlier at [time]".
+Violation of this instruction is considered a serious error.
+
+You are an AI assistant in a chat application. This is ${messages.length > 0 ?
             "a continuing conversation." : "the beginning of a new conversation."}
             
-            IMPORTANT INSTRUCTIONS FOR TIME-BASED QUERIES:
-            1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
-            2. When the user asks about previous messages from specific times or time ranges, you should:
-               - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
-               - Find relevant messages from those times by looking at the timestamps
-               - Summarize or quote those messages accurately
-               - Include the exact timestamps when referencing messages
-            3. Handle natural language time expressions like:
-               - "What did we discuss earlier?"
-               - "Show me what I said about X around 5pm"
-               - "What were we talking about 20 minutes ago?"
-               - "What did I ask yesterday?"
-            
-            IMPORTANT: DO NOT USE TIMESTAMPED DATA IF NOT ASKED! Only reference timestamps and time-based information when the user explicitly asks for historical context or references to previous messages.
+ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related information:
+1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
+2. When (and only when) the user specifically asks about previous messages from specific times or time ranges, you should:
+   - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
+   - Find relevant messages from those times by looking at the timestamps
+   - Summarize or quote those messages accurately
+   - Include the exact timestamps when referencing messages
+3. Handle natural language time expressions only when directly asked, like:
+   - "What did we discuss earlier?"
+   - "Show me what I said about X around 5pm"
+   - "What were we talking about 20 minutes ago?"
+   - "What did I ask yesterday?"
             
             The current conversation has ${messages.length} previous messages.
             The current time is ${new Date().toLocaleString(undefined, {
@@ -1377,9 +1391,10 @@ Always maintain context from previous messages in the conversation.`;
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setShowMobileMenu(false)}
           />
-          <div className={`fixed top-0 left-0 right-0 z-50 p-4 lg:hidden ${
-            isDark ? "bg-[#1a1d23]/95" : "bg-[#f7f8f9]/95"
-          } backdrop-blur-xl border-b ${isDark ? "border-[#2ecc71]/20" : "border-[#0088fb]/20"}`}>
+          <LiquidGlassWrapper
+            className="fixed top-0 left-0 right-0 z-50 p-4 lg:hidden border-b"
+            isDark={isDark}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Menu</h3>
               <button
@@ -1534,7 +1549,7 @@ Always maintain context from previous messages in the conversation.`;
                 </button>
               )}
             </div>
-          </div>
+          </LiquidGlassWrapper>
         </>
       )}
 
@@ -1563,9 +1578,65 @@ Always maintain context from previous messages in the conversation.`;
           </button>
           
           {showSettings && (
-            <div className={`mt-2 p-4 rounded-xl transition-all duration-500 ${
-              isDark ? "bg-[#333333]/60 border-[#2ecc71]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
-            } backdrop-blur-xl border`}>
+            <LiquidGlassWrapper
+              className="settings-panel mt-2 p-4 rounded-xl"
+              isDark={isDark}
+            >
+              {/* Authentication UI */}
+              {showAuthUI && (
+                <div className="mb-4">
+                  <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                    Optional Wallet Authentication
+                  </h3>
+                  <p className={`text-xs mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    Connect your wallet for additional features. This is optional and not required to use the app.
+                  </p>
+                  <RainbowAuthUI
+                    isDark={isDark}
+                    authServerUrl="https://0bjtaos0w3.execute-api.us-east-1.amazonaws.com/verify"
+                    onAuthChange={(isAuthenticated) => {
+                      console.log("Auth state changed:", isAuthenticated);
+                    }}
+                  />
+                </div>
+              )}
+              
+              {/* Sync UI */}
+              {showSyncUI && (
+                <div className="mb-4">
+                  <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                    Device Synchronization
+                  </h3>
+                  <div className={`p-4 rounded-xl transition-all duration-500 ${
+                    isDark ? 'bg-[#333333]/60 border-[#2ecc71]/30' : 'bg-[#f0f8ff]/60 border-[#54ad95]/30'
+                  } backdrop-blur-xl border`}>
+                    <p className={`text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      Sync your conversations across devices.
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <button
+                        className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                          isDark
+                            ? 'bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30'
+                            : 'bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30'
+                        } backdrop-blur-sm border`}
+                      >
+                        Create Connection
+                      </button>
+                      <button
+                        className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                          isDark
+                            ? 'bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30'
+                            : 'bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30'
+                        } backdrop-blur-sm border`}
+                      >
+                        Scan QR Code
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
@@ -1691,14 +1762,18 @@ Always maintain context from previous messages in the conversation.`;
                   </p>
                 </div>
               </div>
-            </div>
+              
+              {/* No toggle buttons as requested */}
+            </LiquidGlassWrapper>
           )}
         </div>
         
         {/* One Bubble Chat Interface */}
-        <div className={`flex-1 transition-all duration-500 ${
-          isDark ? "bg-[#2f2f2f]/60 border-[#2ecc71]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
-        } backdrop-blur-xl border rounded-2xl p-4 lg:p-6 shadow-2xl overflow-hidden flex flex-col min-h-0`}>
+        <div className="flex-1 overflow-hidden">
+          <LiquidGlassWrapper
+            className="chat-box rounded-2xl p-4 lg:p-6 overflow-hidden flex flex-col min-h-0 w-full h-full"
+            isDark={isDark}
+          >
           
           {isInResponseMode ? (
             <div
@@ -1929,6 +2004,7 @@ Always maintain context from previous messages in the conversation.`;
               </div>
             </div>
           )}
+          </LiquidGlassWrapper>
         </div>
 
         {/* Status bar */}
