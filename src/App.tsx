@@ -70,14 +70,14 @@ const ApiKeyModal = ({ isOpen, onClose, onSave, isDark }: {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div 
         className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl transition-all duration-300 ${
-          isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+          isDark ? 'bg-[#333333] text-white' : 'bg-white text-gray-900'
         }`}
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold">Enter API Key</h2>
           <button 
             onClick={onClose}
-            className={`p-1 rounded-full ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+            className={`p-1 rounded-full ${isDark ? 'hover:bg-[#444444]' : 'hover:bg-gray-100'}`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -91,8 +91,8 @@ const ApiKeyModal = ({ isOpen, onClose, onSave, isDark }: {
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-..."
               className={`w-full px-4 py-3 rounded-lg border text-base ${
-                isDark 
-                  ? 'bg-gray-700 border-gray-600 text-white' 
+                isDark
+                  ? 'bg-[#444444] border-[#555555] text-white'
                   : 'bg-white border-gray-300 text-gray-900'
               } focus:outline-none focus:ring-2 focus:ring-purple-500`}
               autoFocus
@@ -107,8 +107,8 @@ const ApiKeyModal = ({ isOpen, onClose, onSave, isDark }: {
               type="button"
               onClick={onClose}
               className={`px-4 py-2 rounded-lg ${
-                isDark 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                isDark
+                  ? 'bg-[#444444] hover:bg-[#555555] text-white'
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
               }`}
               disabled={isLoading}
@@ -207,18 +207,18 @@ const MobileBranchPanel = ({
       {/* Panel */}
       <div className={`fixed inset-y-0 left-0 z-40 w-full max-w-sm transform transition-transform duration-300 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } ${isDark ? 'bg-[#00171c]/95' : 'bg-[#f7f8f9]/95'} backdrop-blur-xl border-r ${
-        isDark ? 'border-[#54ad95]/30' : 'border-[#54ad95]/30'
+      } ${isDark ? 'bg-[#1a1d23]/95' : 'bg-[#f7f8f9]/95'} backdrop-blur-xl border-r ${
+        isDark ? 'border-[#2ecc71]/30' : 'border-[#54ad95]/30'
       }`}>
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200/20">
-          <h3 className={`font-bold ${isDark ? "text-[#f0f8ff]" : "text-[#00171c]"}`}>
+          <h3 className={`font-bold ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
             Branches
           </h3>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-[#54ad95]/20' : 'hover:bg-[#0088fb]/20'}`}
+            className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-[#2ecc71]/20' : 'hover:bg-[#0088fb]/20'}`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -228,13 +228,13 @@ const MobileBranchPanel = ({
           {/* Current Branch Info */}
           {currentBranch && (
             <div className={`p-4 rounded-xl ${
-              isDark ? "bg-[#54ad95]/20 border-[#54ad95]/30 text-[#54ad95]" : "bg-[#0088fb]/10 border-[#0088fb]/20 text-[#0088fb]"
+              isDark ? "bg-[#2ecc71]/20 border-[#2ecc71]/30 text-[#2ecc71]" : "bg-[#0088fb]/10 border-[#0088fb]/20 text-[#0088fb]"
             } backdrop-blur-sm border`}>
               <div className="flex items-center gap-2 mb-2">
                 <GitBranch className="w-4 h-4" />
                 <p className="font-semibold text-sm">{currentBranch.name}</p>
               </div>
-              <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#00171c]/70"}`}>
+              <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#1a1d23]/70"}`}>
                 {messages.length} messages
               </p>
             </div>
@@ -246,7 +246,7 @@ const MobileBranchPanel = ({
               onClick={() => setShowNewBranchDialog(true)}
               className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
                 isDark
-                  ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                  ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                   : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
               } backdrop-blur-sm border flex items-center justify-center gap-2 text-sm`}
             >
@@ -259,8 +259,8 @@ const MobileBranchPanel = ({
               disabled={!currentBranch}
               className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
                 isDark
-                  ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
-                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/20"
+                  ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
+                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#1a1d23] border-[#54ad95]/20"
               } backdrop-blur-sm border disabled:opacity-50 flex items-center justify-center gap-2 text-sm`}
             >
               <Camera className="w-4 h-4" />
@@ -280,26 +280,26 @@ const MobileBranchPanel = ({
                 className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${
                   currentBranch?.id === branch.id
                     ? isDark
-                      ? "bg-[#54ad95]/30 border-[#54ad95]/50"
+                      ? "bg-[#2ecc71]/30 border-[#2ecc71]/50"
                       : "bg-[#54ad95]/20 border-[#54ad95]/40"
                     : isDark
-                      ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 border-[#54ad95]/20"
+                      ? "bg-[#333333]/60 hover:bg-[#444444]/80 border-[#2ecc71]/20"
                       : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 border-[#54ad95]/20"
                 } backdrop-blur-sm border`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-medium text-sm ${isDark ? "text-[#f0f8ff]" : "text-[#00171c]"}`}>
+                  <span className={`font-medium text-sm ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
                     {branch.name}
                   </span>
                   {branch.parentId && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                      isDark ? "bg-[#54ad95]/20 text-[#54ad95]" : "bg-[#54ad95]/10 text-[#54ad95]"
+                      isDark ? "bg-[#2ecc71]/20 text-[#2ecc71]" : "bg-[#54ad95]/10 text-[#54ad95]"
                     }`}>
                       forked
                     </span>
                   )}
                 </div>
-                <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#00171c]/70"}`}>
+                <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#1a1d23]/70"}`}>
                   {branch.messages.length} msgs • {branch.createdAt.toLocaleDateString()}
                 </p>
               </div>
@@ -309,11 +309,11 @@ const MobileBranchPanel = ({
 
         {/* New Branch Dialog */}
         {showNewBranchDialog && (
-          <div className="fixed inset-0 bg-[#00171c]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-[#1a1d23]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className={`p-6 rounded-2xl w-full max-w-sm ${
-              isDark ? "bg-[#00171c]/95 border-[#54ad95]/30" : "bg-[#f7f8f9]/95 border-[#0088fb]/30"
+              isDark ? "bg-[#1a1d23]/95 border-[#2ecc71]/30" : "bg-[#f7f8f9]/95 border-[#0088fb]/30"
             } backdrop-blur-xl border shadow-2xl`}>
-              <h3 className={`text-lg font-bold mb-4 ${isDark ? "text-[#f0f8ff]" : "text-[#00171c]"}`}>
+              <h3 className={`text-lg font-bold mb-4 ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
                 Create New Branch
               </h3>
               <input
@@ -324,10 +324,10 @@ const MobileBranchPanel = ({
                 placeholder="Branch name..."
                 className={`w-full px-4 py-3 rounded-xl text-base ${
                   isDark
-                    ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff] placeholder-[#f0f8ff]/50"
-                    : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#00171c] placeholder-[#00171c]/50"
+                    ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff] placeholder-[#f0f8ff]/50"
+                    : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#1a1d23] placeholder-[#1a1d23]/50"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#0088fb]/50"
+                  isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#0088fb]/50"
                 } mb-4`}
                 autoFocus
               />
@@ -336,7 +336,7 @@ const MobileBranchPanel = ({
                   onClick={handleCreateBranch}
                   className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
                     isDark
-                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                       : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border`}
                 >
@@ -346,8 +346,8 @@ const MobileBranchPanel = ({
                   onClick={() => setShowNewBranchDialog(false)}
                   className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
                     isDark
-                      ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
-                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/20"
+                      ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
+                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#1a1d23] border-[#54ad95]/20"
                   } backdrop-blur-sm border`}
                 >
                   Cancel
@@ -373,7 +373,7 @@ const ConsentBanner = ({
 }) => {
   return (
     <div className={`fixed bottom-0 left-0 right-0 z-50 p-4 transition-all duration-500 ${
-      isDark ? "bg-[#00171c]/90 border-t border-[#54ad95]/30" : "bg-[#f0f8ff]/90 border-t border-[#54ad95]/30"
+      isDark ? "bg-[#1a1d23]/90 border-t border-[#2ecc71]/30" : "bg-[#f0f8ff]/90 border-t border-[#54ad95]/30"
     } backdrop-blur-xl`}>
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
@@ -385,7 +385,7 @@ const ConsentBanner = ({
             onClick={onAccept}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
               isDark
-                ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                 : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
             } backdrop-blur-sm border`}
           >
@@ -395,8 +395,8 @@ const ConsentBanner = ({
             onClick={onDecline}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
               isDark
-                ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
-                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/20"
+                ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
+                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#1a1d23] border-[#54ad95]/20"
             } backdrop-blur-sm border`}
           >
             Decline
@@ -915,7 +915,7 @@ function App() {
   }, [isInResponseMode]) // Re-add listener when response mode changes
 
   const themeClasses = isDark
-    ? "bg-gradient-to-br from-[#00171c] via-[#0088fb]/30 to-[#00171c]"
+    ? "bg-gradient-to-br from-[#1a1d23] via-[#333333]/30 to-[#1a1d23]"
     : "bg-gradient-to-br from-[#f7f8f9] via-[#f0f8ff]/70 to-[#f7f8f9]"
 
   return (
@@ -924,19 +924,19 @@ function App() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className={`absolute top-1/4 left-1/4 w-64 h-64 lg:w-96 lg:h-96 rounded-full blur-3xl opacity-20 transition-all duration-1000 ${
-            isDark ? "bg-[#54ad95]" : "bg-[#54ad95]/70"
+            isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]/70"
           }`}
           style={{ animation: "float 6s ease-in-out infinite" }}
         />
         <div
           className={`absolute bottom-1/4 right-1/4 w-48 h-48 lg:w-80 lg:h-80 rounded-full blur-3xl opacity-15 transition-all duration-1000 ${
-            isDark ? "bg-[#0088fb]" : "bg-[#0088fb]/60"
+            isDark ? "bg-[#03a9f4]" : "bg-[#0088fb]/60"
           }`}
           style={{ animation: "float 8s ease-in-out infinite reverse" }}
         />
         <div
           className={`absolute top-1/2 left-1/2 w-32 h-32 lg:w-64 lg:h-64 rounded-full blur-2xl opacity-10 transition-all duration-1000 ${
-            isDark ? "bg-[#54ad95]/80" : "bg-[#54ad95]/40"
+            isDark ? "bg-[#9b59b6]/80" : "bg-[#54ad95]/40"
           }`}
           style={{ animation: "float 10s ease-in-out infinite" }}
         />
@@ -957,7 +957,7 @@ function App() {
 
       {/* Header */}
       <div className={`transition-all duration-500 ${
-        isDark ? "bg-[#00171c]/80 border-b border-[#54ad95]/30" : "bg-[#f0f8ff]/80 border-b border-[#54ad95]/20"
+        isDark ? "bg-[#1a1d23]/80 border-b border-[#2ecc71]/30" : "bg-[#f0f8ff]/80 border-b border-[#54ad95]/20"
       } backdrop-blur-xl sticky top-0 z-30`}>
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -1013,7 +1013,7 @@ function App() {
               </button>
               
               <Sparkles className={`w-6 h-6 transition-colors duration-500 ${
-                isDark ? "text-[#54ad95]" : "text-[#0088fb]"
+                isDark ? "text-[#2ecc71]" : "text-[#0088fb]"
               }`} />
               <h1 className={`text-lg lg:text-2xl font-bold transition-colors duration-500 ${
                 isDark ? "text-white" : "text-gray-900"
@@ -1033,10 +1033,10 @@ function App() {
                   className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "ephemeral"
                       ? isDark
-                        ? "bg-[#54ad95]/30 text-[#54ad95] shadow-lg shadow-[#54ad95]/20"
+                        ? "bg-[#2ecc71]/30 text-[#2ecc71] shadow-lg shadow-[#2ecc71]/20"
                         : "bg-[#54ad95]/20 text-[#00171c] shadow-lg shadow-[#54ad95]/10"
                       : isDark
-                        ? "text-[#f0f8ff] hover:text-white hover:bg-white/10"
+                        ? "text-[#f0f8ff] hover:text-white hover:bg-[#444444]"
                         : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
                   }`}
                 >
@@ -1052,10 +1052,10 @@ function App() {
                   className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "structured"
                       ? isDark
-                        ? "bg-[#0088fb]/30 text-[#0088fb] shadow-lg shadow-[#0088fb]/20"
+                        ? "bg-[#03a9f4]/30 text-[#03a9f4] shadow-lg shadow-[#03a9f4]/20"
                         : "bg-[#54ad95]/20 text-[#54ad95] shadow-lg shadow-[#54ad95]/10"
                       : isDark
-                        ? "text-[#f0f8ff] hover:text-white hover:bg-white/10"
+                        ? "text-[#f0f8ff] hover:text-white hover:bg-[#444444]"
                         : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
                   }`}
                 >
@@ -1077,10 +1077,10 @@ function App() {
                 }}
                 className={`p-3 rounded-xl transition-all duration-500 ${
                   isDark
-                    ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]"
+                    ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71]"
                     : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
                 } backdrop-blur-sm border ${
-                  isDark ? "border-[#54ad95]/30" : "border-[#54ad95]/30"
+                  isDark ? "border-[#2ecc71]/30" : "border-[#54ad95]/30"
                 } hover:scale-105 active:scale-95`}
               >
                 {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -1099,9 +1099,9 @@ function App() {
                   }
                 }}
                 className={`px-4 py-2.5 text-sm rounded-xl transition-all duration-500 ${
-                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
+                  isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#54ad95]/50"
+                  isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
                 }`}
               >
                 {TEE_MODELS.map((model) => (
@@ -1117,17 +1117,17 @@ function App() {
                   disabled={isVerifying}
                   className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
                     isDark
-                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                       : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border disabled:opacity-50 hover:scale-105 active:scale-95 shadow-lg ${
-                    isDark ? "shadow-[#54ad95]/20" : "shadow-[#54ad95]/10"
+                    isDark ? "shadow-[#2ecc71]/20" : "shadow-[#54ad95]/10"
                   }`}
                 >
                   {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
                 </button>
                 {attestation && attestation.signing_address && (
                   <div className={`text-xs mt-1 text-center truncate max-w-[180px] ${
-                    isDark ? "text-[#54ad95]/70" : "text-[#54ad95]/70"
+                    isDark ? "text-[#2ecc71]/70" : "text-[#54ad95]/70"
                   }`} title={attestation.signing_address}>
                     {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
                   </div>
@@ -1149,7 +1149,7 @@ function App() {
                   onClick={() => setShowApiKeyModal(true)}
                   className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
                     isDark
-                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                       : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border hover:scale-105 active:scale-95`}
                 >
@@ -1171,8 +1171,8 @@ function App() {
                 }
               }}
               className={`p-2 rounded-xl transition-all duration-500 ${
-                isDark ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
-              } backdrop-blur-sm border ${isDark ? "border-[#54ad95]/30" : "border-[#54ad95]/30"} lg:hidden`}
+                isDark ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
+              } backdrop-blur-sm border ${isDark ? "border-[#2ecc71]/30" : "border-[#54ad95]/30"} lg:hidden`}
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
@@ -1188,8 +1188,8 @@ function App() {
             onClick={() => setShowMobileMenu(false)}
           />
           <div className={`fixed top-0 left-0 right-0 z-50 p-4 ${
-            isDark ? "bg-[#00171c]/95" : "bg-[#f7f8f9]/95"
-          } backdrop-blur-xl border-b ${isDark ? "border-[#54ad95]/20" : "border-[#0088fb]/20"}`}>
+            isDark ? "bg-[#1a1d23]/95" : "bg-[#f7f8f9]/95"
+          } backdrop-blur-xl border-b ${isDark ? "border-[#2ecc71]/20" : "border-[#0088fb]/20"}`}>
             <div className="flex items-center justify-between mb-4">
               <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Menu</h3>
               <button
@@ -1203,8 +1203,8 @@ function App() {
             <div className="space-y-3">
               {/* Mode Switcher */}
               <div className={`flex rounded-xl p-1 ${
-                isDark ? "bg-[#00171c]/60" : "bg-[#f0f8ff]/60"
-              } backdrop-blur-sm border ${isDark ? "border-[#54ad95]/30" : "border-[#0088fb]/30"}`}>
+                isDark ? "bg-[#333333]/60" : "bg-[#f0f8ff]/60"
+              } backdrop-blur-sm border ${isDark ? "border-[#2ecc71]/30" : "border-[#0088fb]/30"}`}>
                 <button
                   onClick={() => {
                     setMode("ephemeral")
@@ -1212,7 +1212,7 @@ function App() {
                   }}
                   className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "ephemeral"
-                      ? isDark ? "bg-[#54ad95]/30 text-[#54ad95]" : "bg-[#54ad95]/20 text-[#00171c]"
+                      ? isDark ? "bg-[#2ecc71]/30 text-[#2ecc71]" : "bg-[#54ad95]/20 text-[#00171c]"
                       : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
                   }`}
                 >
@@ -1228,7 +1228,7 @@ function App() {
                   }}
                   className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "structured"
-                      ? isDark ? "bg-[#0088fb]/30 text-[#0088fb]" : "bg-[#54ad95]/20 text-[#54ad95]"
+                      ? isDark ? "bg-[#03a9f4]/30 text-[#03a9f4]" : "bg-[#54ad95]/20 text-[#54ad95]"
                       : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
                   }`}
                 >
@@ -1249,9 +1249,9 @@ function App() {
                   }
                 }}
                 className={`w-full px-4 py-3 text-base rounded-xl ${
-                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
+                  isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#54ad95]/50"
+                  isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
                 }`}
               >
                 {TEE_MODELS.map((model) => (
@@ -1268,7 +1268,7 @@ function App() {
                 }}
                 className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                   isDark
-                    ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                    ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                     : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                 } backdrop-blur-sm border`}
               >
@@ -1276,7 +1276,7 @@ function App() {
               </button>
               {attestation && attestation.signing_address && (
                 <div className={`text-xs mt-1 text-center truncate ${
-                  isDark ? "text-[#54ad95]/70" : "text-[#54ad95]/70"
+                  isDark ? "text-[#2ecc71]/70" : "text-[#54ad95]/70"
                 }`} title={attestation.signing_address}>
                   {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
                 </div>
@@ -1286,7 +1286,7 @@ function App() {
                 onClick={handleNewConversation}
                 className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                   isDark
-                    ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
+                    ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
                     : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
                 } backdrop-blur-sm border`}
               >
@@ -1312,7 +1312,7 @@ function App() {
                   }}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                     isDark
-                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                       : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border`}
                 >
@@ -1339,7 +1339,7 @@ function App() {
             onClick={() => setShowSettings(!showSettings)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
               isDark
-                ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/30"
+                ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
                 : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
             } backdrop-blur-sm border text-sm font-medium`}
           >
@@ -1350,11 +1350,11 @@ function App() {
           
           {showSettings && (
             <div className={`mt-2 p-4 rounded-xl transition-all duration-500 ${
-              isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
+              isDark ? "bg-[#333333]/60 border-[#2ecc71]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
             } backdrop-blur-xl border`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                     Temperature: {temperature}
                   </label>
                   <input
@@ -1366,13 +1366,13 @@ function App() {
                     onChange={(e) => setTemperature(parseFloat(e.target.value))}
                     className="w-full"
                   />
-                  <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                  <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                     Lower values = more focused, higher values = more creative
                   </p>
                 </div>
                 
                 <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                     Max Tokens: {maxTokens}
                   </label>
                   <input
@@ -1384,14 +1384,14 @@ function App() {
                     onChange={(e) => setMaxTokens(parseInt(e.target.value))}
                     className="w-full"
                   />
-                  <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                  <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                     Maximum length of the response
                   </p>
                 </div>
                 
                 <div className="md:col-span-2">
                   <div className="flex items-center justify-between">
-                    <label className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                       Add Timestamps to Messages (Your Local Time)
                     </label>
                     <div className="relative inline-block w-10 mr-2 align-middle select-none">
@@ -1409,7 +1409,7 @@ function App() {
                         htmlFor="toggle-timestamps"
                         className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
                           enableTimestamps
-                            ? isDark ? "bg-[#54ad95]" : "bg-[#54ad95]"
+                            ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
                             : isDark ? "bg-gray-600" : "bg-gray-300"
                         }`}
                       ></label>
@@ -1418,7 +1418,7 @@ function App() {
                   
                   {enableTimestamps && (
                     <div className="mt-2 flex items-center justify-between">
-                      <label className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                         Show Timestamps in Messages
                       </label>
                       <div className="relative inline-block w-10 mr-2 align-middle select-none">
@@ -1433,7 +1433,7 @@ function App() {
                           htmlFor="toggle-show-timestamps"
                           className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
                             showTimestamps
-                              ? isDark ? "bg-[#54ad95]" : "bg-[#54ad95]"
+                              ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
                               : isDark ? "bg-gray-600" : "bg-gray-300"
                           }`}
                         ></label>
@@ -1444,7 +1444,7 @@ function App() {
                 
                 <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-500/20">
                   <div className="flex items-center justify-between">
-                    <label className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                       Save Preferences to Device
                     </label>
                     <div className="relative inline-block w-10 mr-2 align-middle select-none">
@@ -1464,13 +1464,13 @@ function App() {
                         htmlFor="toggle-consent"
                         className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
                           hasConsented
-                            ? isDark ? "bg-[#54ad95]" : "bg-[#54ad95]"
+                            ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
                             : isDark ? "bg-gray-600" : "bg-gray-300"
                         }`}
                       ></label>
                     </div>
                   </div>
-                  <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                  <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
                     {hasConsented
                       ? "Your preferences will be saved to this device"
                       : "Your preferences will only be used for this session"}
@@ -1483,7 +1483,7 @@ function App() {
         
         {/* One Bubble Chat Interface */}
         <div className={`flex-1 transition-all duration-500 ${
-          isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
+          isDark ? "bg-[#2f2f2f]/60 border-[#2ecc71]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
         } backdrop-blur-xl border rounded-2xl p-4 lg:p-6 shadow-2xl overflow-hidden flex flex-col min-h-0`}>
           
           {isInResponseMode ? (
@@ -1520,7 +1520,7 @@ function App() {
                 >
                   <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh]`}>
                     {enableTimestamps && showTimestamps && messages.length > 0 && messages[messages.length - 1].timestamp && (
-                      <div className={`text-xs mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div className={`text-xs mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                         {new Date(messages[messages.length - 1].timestamp).toLocaleString(undefined, {
                           year: 'numeric',
                           month: 'short',
@@ -1545,7 +1545,7 @@ function App() {
                         a: ({ node, ...props }: any) => (
                           <a
                             className={`transition-colors duration-300 hover:underline ${
-                              isDark ? "text-[#0088fb]" : "text-[#54ad95]"
+                              isDark ? "text-[#03a9f4]" : "text-[#54ad95]"
                             }`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1556,7 +1556,7 @@ function App() {
                           inline ? (
                             <code
                               className={`px-2 py-1 rounded text-sm transition-colors duration-500 ${
-                                isDark ? "bg-[#00171c]/80" : "bg-[#f0f8ff]/80"
+                                isDark ? "bg-[#333333]/80" : "bg-[#f0f8ff]/80"
                               }`}
                               {...props}
                             >
@@ -1565,7 +1565,7 @@ function App() {
                           ) : (
                             <pre
                               className={`p-4 rounded-lg my-3 overflow-x-auto transition-colors duration-500 ${
-                                isDark ? "bg-[#00171c]/80" : "bg-[#f0f8ff]/80"
+                                isDark ? "bg-[#333333]/80" : "bg-[#f0f8ff]/80"
                               }`}
                             >
                               <code className="text-sm" {...props}>
@@ -1596,7 +1596,7 @@ function App() {
                       }}
                       className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                         isDark
-                          ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95]"
+                          ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71]"
                           : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
                       } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
                     >
@@ -1607,7 +1607,7 @@ function App() {
                         onClick={handlePinConversation}
                         className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                           isDark
-                            ? "bg-[#0088fb]/30 hover:bg-[#0088fb]/40 text-[#0088fb]"
+                            ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4]"
                             : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
                         } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
                       >
@@ -1647,7 +1647,7 @@ function App() {
                       disabled={isLoading || !input.trim()}
                       className={`absolute bottom-2 right-2 p-2 lg:p-3 rounded-full transition-all duration-300 ${
                         isDark
-                          ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                          ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                           : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                       } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
                     >
@@ -1658,7 +1658,7 @@ function App() {
                   
                   {/* Input hints */}
                   <div className="flex items-center justify-between mt-3 text-xs lg:text-sm">
-                    <span className={`${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    <span className={`${isDark ? 'text-gray-300' : 'text-gray-400'}`}>
                       ⏎ to send • ⇧⏎ for new line
                     </span>
                     {messages.length > 0 && (
@@ -1666,7 +1666,7 @@ function App() {
                         onClick={handleNewConversation}
                         className={`px-2 py-1 text-xs rounded transition-all duration-300 ${
                           isDark
-                            ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff]"
+                            ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff]"
                             : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c]"
                         } backdrop-blur-sm hover:scale-105 active:scale-95`}
                       >
@@ -1682,7 +1682,7 @@ function App() {
 
         {/* Status bar */}
         <div className={`text-center mt-4 text-xs lg:text-sm ${
-          isDark ? 'text-gray-500' : 'text-gray-600'
+          isDark ? 'text-gray-300' : 'text-gray-600'
         }`}>
           🔒 {mode === "ephemeral" 
             ? "Ephemeral session • No history stored" 
@@ -1694,10 +1694,10 @@ function App() {
         /* Toggle switch styles */
         .toggle-checkbox:checked {
           right: 0;
-          border-color: ${isDark ? '#54ad95' : '#0088fb'};
+          border-color: ${isDark ? '#2ecc71' : '#0088fb'};
         }
         .toggle-checkbox:checked + .toggle-label {
-          background-color: ${isDark ? '#54ad95' : '#0088fb'};
+          background-color: ${isDark ? '#2ecc71' : '#0088fb'};
         }
         .toggle-checkbox {
           right: 0;
