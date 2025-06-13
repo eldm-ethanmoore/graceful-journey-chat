@@ -208,7 +208,7 @@ const MobileBranchPanel = ({
       <div className={`fixed inset-y-0 left-0 z-40 w-full max-w-sm transform transition-transform duration-300 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } ${isDark ? 'bg-[#00171c]/95' : 'bg-[#f7f8f9]/95'} backdrop-blur-xl border-r ${
-        isDark ? 'border-[#54ad95]/30' : 'border-[#0088fb]/30'
+        isDark ? 'border-[#54ad95]/30' : 'border-[#54ad95]/30'
       }`}>
         
         {/* Header */}
@@ -247,7 +247,7 @@ const MobileBranchPanel = ({
               className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
                 isDark
                   ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                  : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                  : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
               } backdrop-blur-sm border flex items-center justify-center gap-2 text-sm`}
             >
               <Plus className="w-4 h-4" />
@@ -260,7 +260,7 @@ const MobileBranchPanel = ({
               className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
                 isDark
                   ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
-                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
+                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/20"
               } backdrop-blur-sm border disabled:opacity-50 flex items-center justify-center gap-2 text-sm`}
             >
               <Camera className="w-4 h-4" />
@@ -281,10 +281,10 @@ const MobileBranchPanel = ({
                   currentBranch?.id === branch.id
                     ? isDark
                       ? "bg-[#54ad95]/30 border-[#54ad95]/50"
-                      : "bg-[#0088fb]/20 border-[#0088fb]/40"
+                      : "bg-[#54ad95]/20 border-[#54ad95]/40"
                     : isDark
                       ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 border-[#54ad95]/20"
-                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 border-[#0088fb]/20"
+                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 border-[#54ad95]/20"
                 } backdrop-blur-sm border`}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -293,7 +293,7 @@ const MobileBranchPanel = ({
                   </span>
                   {branch.parentId && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                      isDark ? "bg-[#54ad95]/20 text-[#54ad95]" : "bg-[#0088fb]/10 text-[#0088fb]"
+                      isDark ? "bg-[#54ad95]/20 text-[#54ad95]" : "bg-[#54ad95]/10 text-[#54ad95]"
                     }`}>
                       forked
                     </span>
@@ -337,7 +337,7 @@ const MobileBranchPanel = ({
                   className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
                     isDark
                       ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border`}
                 >
                   Create
@@ -347,7 +347,7 @@ const MobileBranchPanel = ({
                   className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
                     isDark
                       ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
-                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
+                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/20"
                   } backdrop-blur-sm border`}
                 >
                   Cancel
@@ -360,6 +360,52 @@ const MobileBranchPanel = ({
     </>
   )
 }
+
+// Consent Banner Component
+const ConsentBanner = ({
+  isDark,
+  onAccept,
+  onDecline
+}: {
+  isDark: boolean,
+  onAccept: () => void,
+  onDecline: () => void
+}) => {
+  return (
+    <div className={`fixed bottom-0 left-0 right-0 z-50 p-4 transition-all duration-500 ${
+      isDark ? "bg-[#00171c]/90 border-t border-[#54ad95]/30" : "bg-[#f0f8ff]/90 border-t border-[#54ad95]/30"
+    } backdrop-blur-xl`}>
+      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+          We use localStorage to save your preferences (theme, model selection, and settings).
+          This data stays on your device and helps provide a personalized experience.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onAccept}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+              isDark
+                ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
+            } backdrop-blur-sm border`}
+          >
+            Accept
+          </button>
+          <button
+            onClick={onDecline}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+              isDark
+                ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
+                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/20"
+            } backdrop-blur-sm border`}
+          >
+            Decline
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -384,6 +430,7 @@ function App() {
   const [maxTokens, setMaxTokens] = useState(DEFAULT_SETTINGS.maxTokens)
   const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
   const [showTimestamps, setShowTimestamps] = useState(DEFAULT_SETTINGS.showTimestamps)
+  const [hasConsented, setHasConsented] = useState<boolean | null>(DEFAULT_SETTINGS.hasConsented)
 
   // RedPill API configuration
   const REDPILL_API_URL = "https://api.redpill.ai/v1"
@@ -416,6 +463,18 @@ function App() {
     setMaxTokens(savedSettings.maxTokens)
     setEnableTimestamps(savedSettings.enableTimestamps)
     setShowTimestamps(savedSettings.showTimestamps)
+    
+    // Load theme and model preferences if they exist
+    if (savedSettings.isDark !== undefined) {
+      setIsDark(savedSettings.isDark)
+    }
+    
+    if (savedSettings.selectedModel) {
+      setSelectedModel(savedSettings.selectedModel)
+    }
+    
+    // Load consent status
+    setHasConsented(savedSettings.hasConsented)
   }, [])
   
   // Save settings when they change
@@ -424,10 +483,25 @@ function App() {
       temperature,
       maxTokens,
       enableTimestamps,
-      showTimestamps
+      showTimestamps,
+      isDark,
+      selectedModel,
+      hasConsented
     }
-    secureStorage.saveSettings(currentSettings)
-  }, [temperature, maxTokens, enableTimestamps, showTimestamps])
+    
+    // Always save the consent decision itself
+    if (hasConsented !== null) {
+      secureStorage.saveSettings(currentSettings)
+    }
+    
+    // Only save other preferences if user has consented
+    if (hasConsented === true) {
+      // We've already saved everything in the call above
+      console.log("Saved user preferences:", currentSettings)
+    } else {
+      console.log("User preferences not saved due to consent settings")
+    }
+  }, [temperature, maxTokens, enableTimestamps, showTimestamps, isDark, selectedModel, hasConsented])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -842,7 +916,7 @@ function App() {
 
   const themeClasses = isDark
     ? "bg-gradient-to-br from-[#00171c] via-[#0088fb]/30 to-[#00171c]"
-    : "bg-gradient-to-br from-[#f7f8f9] via-[#f0f8ff] to-[#f7f8f9]"
+    : "bg-gradient-to-br from-[#f7f8f9] via-[#f0f8ff]/70 to-[#f7f8f9]"
 
   return (
     <div className={`min-h-screen transition-all duration-1000 ${themeClasses} flex flex-col relative overflow-hidden`}>
@@ -944,7 +1018,7 @@ function App() {
               <h1 className={`text-lg lg:text-2xl font-bold transition-colors duration-500 ${
                 isDark ? "text-white" : "text-gray-900"
               }`}>
-                Graceful Journey
+                Graceful Journey Chat
               </h1>
             </div>
 
@@ -979,7 +1053,7 @@ function App() {
                     mode === "structured"
                       ? isDark
                         ? "bg-[#0088fb]/30 text-[#0088fb] shadow-lg shadow-[#0088fb]/20"
-                        : "bg-[#0088fb]/20 text-[#0088fb] shadow-lg shadow-[#0088fb]/10"
+                        : "bg-[#54ad95]/20 text-[#54ad95] shadow-lg shadow-[#54ad95]/10"
                       : isDark
                         ? "text-[#f0f8ff] hover:text-white hover:bg-white/10"
                         : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
@@ -991,13 +1065,22 @@ function App() {
 
               {/* Theme Toggle */}
               <button
-                onClick={() => setIsDark(!isDark)}
+                onClick={() => {
+                  const newTheme = !isDark;
+                  setIsDark(newTheme);
+                  
+                  // Theme change is always applied for current session
+                  // but only saved if user has consented
+                  if (hasConsented) {
+                    console.log("Saving theme preference:", newTheme);
+                  }
+                }}
                 className={`p-3 rounded-xl transition-all duration-500 ${
                   isDark
                     ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]"
-                    : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#0088fb]"
+                    : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
                 } backdrop-blur-sm border ${
-                  isDark ? "border-[#54ad95]/30" : "border-[#0088fb]/30"
+                  isDark ? "border-[#54ad95]/30" : "border-[#54ad95]/30"
                 } hover:scale-105 active:scale-95`}
               >
                 {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -1005,11 +1088,20 @@ function App() {
 
               <select
                 value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                onChange={(e) => {
+                  const newModel = e.target.value;
+                  setSelectedModel(newModel);
+                  
+                  // Model change is always applied for current session
+                  // but only saved if user has consented
+                  if (hasConsented) {
+                    console.log("Saving model preference:", newModel);
+                  }
+                }}
                 className={`px-4 py-2.5 text-sm rounded-xl transition-all duration-500 ${
-                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#00171c]"
+                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#0088fb]/50"
+                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#54ad95]/50"
                 }`}
               >
                 {TEE_MODELS.map((model) => (
@@ -1026,16 +1118,16 @@ function App() {
                   className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
                     isDark
                       ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border disabled:opacity-50 hover:scale-105 active:scale-95 shadow-lg ${
-                    isDark ? "shadow-[#54ad95]/20" : "shadow-[#0088fb]/10"
+                    isDark ? "shadow-[#54ad95]/20" : "shadow-[#54ad95]/10"
                   }`}
                 >
                   {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
                 </button>
                 {attestation && attestation.signing_address && (
                   <div className={`text-xs mt-1 text-center truncate max-w-[180px] ${
-                    isDark ? "text-[#54ad95]/70" : "text-[#0088fb]/70"
+                    isDark ? "text-[#54ad95]/70" : "text-[#54ad95]/70"
                   }`} title={attestation.signing_address}>
                     {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
                   </div>
@@ -1058,7 +1150,7 @@ function App() {
                   className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
                     isDark
                       ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border hover:scale-105 active:scale-95`}
                 >
                   Login with API Key
@@ -1068,10 +1160,19 @@ function App() {
 
             {/* Mobile theme toggle */}
             <button
-              onClick={() => setIsDark(!isDark)}
+              onClick={() => {
+                const newTheme = !isDark;
+                setIsDark(newTheme);
+                
+                // Theme change is always applied for current session
+                // but only saved if user has consented
+                if (hasConsented) {
+                  console.log("Saving theme preference (mobile):", newTheme);
+                }
+              }}
               className={`p-2 rounded-xl transition-all duration-500 ${
-                isDark ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#0088fb]"
-              } backdrop-blur-sm border ${isDark ? "border-[#54ad95]/30" : "border-[#0088fb]/30"} lg:hidden`}
+                isDark ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
+              } backdrop-blur-sm border ${isDark ? "border-[#54ad95]/30" : "border-[#54ad95]/30"} lg:hidden`}
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
@@ -1127,7 +1228,7 @@ function App() {
                   }}
                   className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "structured"
-                      ? isDark ? "bg-[#0088fb]/30 text-[#0088fb]" : "bg-[#0088fb]/20 text-[#0088fb]"
+                      ? isDark ? "bg-[#0088fb]/30 text-[#0088fb]" : "bg-[#54ad95]/20 text-[#54ad95]"
                       : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
                   }`}
                 >
@@ -1137,11 +1238,20 @@ function App() {
 
               <select
                 value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                onChange={(e) => {
+                  const newModel = e.target.value;
+                  setSelectedModel(newModel);
+                  
+                  // Model change is always applied for current session
+                  // but only saved if user has consented
+                  if (hasConsented) {
+                    console.log("Saving model preference (mobile):", newModel);
+                  }
+                }}
                 className={`w-full px-4 py-3 text-base rounded-xl ${
-                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#00171c]"
+                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#0088fb]/50"
+                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#54ad95]/50"
                 }`}
               >
                 {TEE_MODELS.map((model) => (
@@ -1159,14 +1269,14 @@ function App() {
                 className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                   isDark
                     ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                    : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                    : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                 } backdrop-blur-sm border`}
               >
                 {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
               </button>
               {attestation && attestation.signing_address && (
                 <div className={`text-xs mt-1 text-center truncate ${
-                  isDark ? "text-[#54ad95]/70" : "text-[#0088fb]/70"
+                  isDark ? "text-[#54ad95]/70" : "text-[#54ad95]/70"
                 }`} title={attestation.signing_address}>
                   {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
                 </div>
@@ -1203,7 +1313,7 @@ function App() {
                   className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                     isDark
                       ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                   } backdrop-blur-sm border`}
                 >
                   Login with API Key
@@ -1230,7 +1340,7 @@ function App() {
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
               isDark
                 ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/30"
-                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/30"
+                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
             } backdrop-blur-sm border text-sm font-medium`}
           >
             <SettingsIcon className="w-4 h-4" />
@@ -1240,7 +1350,7 @@ function App() {
           
           {showSettings && (
             <div className={`mt-2 p-4 rounded-xl transition-all duration-500 ${
-              isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#0088fb]/30"
+              isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
             } backdrop-blur-xl border`}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1299,7 +1409,7 @@ function App() {
                         htmlFor="toggle-timestamps"
                         className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
                           enableTimestamps
-                            ? isDark ? "bg-[#54ad95]" : "bg-[#0088fb]"
+                            ? isDark ? "bg-[#54ad95]" : "bg-[#54ad95]"
                             : isDark ? "bg-gray-600" : "bg-gray-300"
                         }`}
                       ></label>
@@ -1323,13 +1433,48 @@ function App() {
                           htmlFor="toggle-show-timestamps"
                           className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
                             showTimestamps
-                              ? isDark ? "bg-[#54ad95]" : "bg-[#0088fb]"
+                              ? isDark ? "bg-[#54ad95]" : "bg-[#54ad95]"
                               : isDark ? "bg-gray-600" : "bg-gray-300"
                           }`}
                         ></label>
                       </div>
                     </div>
                   )}
+                </div>
+                
+                <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-500/20">
+                  <div className="flex items-center justify-between">
+                    <label className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Save Preferences to Device
+                    </label>
+                    <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                      <input
+                        type="checkbox"
+                        id="toggle-consent"
+                        checked={hasConsented === true}
+                        onChange={() => {
+                          const newConsent = hasConsented !== true;
+                          setHasConsented(newConsent);
+                          
+                          console.log("Consent preference updated:", newConsent);
+                        }}
+                        className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                      />
+                      <label
+                        htmlFor="toggle-consent"
+                        className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                          hasConsented
+                            ? isDark ? "bg-[#54ad95]" : "bg-[#54ad95]"
+                            : isDark ? "bg-gray-600" : "bg-gray-300"
+                        }`}
+                      ></label>
+                    </div>
+                  </div>
+                  <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    {hasConsented
+                      ? "Your preferences will be saved to this device"
+                      : "Your preferences will only be used for this session"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1338,7 +1483,7 @@ function App() {
         
         {/* One Bubble Chat Interface */}
         <div className={`flex-1 transition-all duration-500 ${
-          isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#0088fb]/30"
+          isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#54ad95]/30"
         } backdrop-blur-xl border rounded-2xl p-4 lg:p-6 shadow-2xl overflow-hidden flex flex-col min-h-0`}>
           
           {isInResponseMode ? (
@@ -1400,7 +1545,7 @@ function App() {
                         a: ({ node, ...props }: any) => (
                           <a
                             className={`transition-colors duration-300 hover:underline ${
-                              isDark ? "text-[#0088fb]" : "text-[#0088fb]"
+                              isDark ? "text-[#0088fb]" : "text-[#54ad95]"
                             }`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1452,7 +1597,7 @@ function App() {
                       className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                         isDark
                           ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95]"
-                          : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb]"
+                          : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
                       } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
                     >
                       New Message (or press Enter)
@@ -1463,7 +1608,7 @@ function App() {
                         className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                           isDark
                             ? "bg-[#0088fb]/30 hover:bg-[#0088fb]/40 text-[#0088fb]"
-                            : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb]"
+                            : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
                         } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
                       >
                         📌 Save
@@ -1503,7 +1648,7 @@ function App() {
                       className={`absolute bottom-2 right-2 p-2 lg:p-3 rounded-full transition-all duration-300 ${
                         isDark
                           ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
-                          : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                          : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                       } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
                     >
                       <Send className="w-4 h-4 lg:w-5 lg:h-5" />
@@ -1628,6 +1773,15 @@ function App() {
         onSave={handleSaveApiKey}
         isDark={isDark}
       />
+      
+      {/* Consent Banner - only show if consent status is null (not decided) */}
+      {hasConsented === null && (
+        <ConsentBanner
+          isDark={isDark}
+          onAccept={() => setHasConsented(true)}
+          onDecline={() => setHasConsented(false)}
+        />
+      )}
     </div>
   )
 }

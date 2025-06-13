@@ -6,13 +6,19 @@ export interface AppSettings {
   maxTokens: number;
   enableTimestamps: boolean;
   showTimestamps: boolean;
+  isDark: boolean;           // Added for theme preference
+  selectedModel: string;     // Added for model selection
+  hasConsented: boolean | null; // Added for consent tracking (null = not decided)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   temperature: 0.7,
   maxTokens: 4096,
   enableTimestamps: false,
-  showTimestamps: true
+  showTimestamps: true,
+  isDark: true,              // Default to dark mode
+  selectedModel: "phala/llama-3.3-70b-instruct", // Default model
+  hasConsented: null         // Default to not decided
 };
 
 export const secureStorage = {
