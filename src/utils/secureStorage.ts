@@ -1,4 +1,19 @@
 const STORAGE_KEY = 'graceful_journey_secure_storage';
+const SETTINGS_KEY = 'graceful_journey_settings';
+
+export interface AppSettings {
+  temperature: number;
+  maxTokens: number;
+  enableTimestamps: boolean;
+  showTimestamps: boolean;
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  temperature: 0.7,
+  maxTokens: 4096,
+  enableTimestamps: false,
+  showTimestamps: true
+};
 
 export const secureStorage = {
   set: (key: string, value: string): void => {
@@ -38,6 +53,25 @@ export const secureStorage = {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
       console.error('Error clearing secure storage:', error);
+    }
+  },
+  
+  // Settings storage methods
+  saveSettings: (settings: AppSettings): void => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
+  },
+  
+  loadSettings: (): AppSettings => {
+    try {
+      const data = localStorage.getItem(SETTINGS_KEY);
+      return data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS;
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      return DEFAULT_SETTINGS;
     }
   }
 };

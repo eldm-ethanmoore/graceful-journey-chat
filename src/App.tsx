@@ -3,8 +3,9 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch } from "lucide-react"
-import { secureStorage } from "./utils/secureStorage"
+import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon } from "lucide-react"
+import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
+import type { AppSettings } from "./utils/secureStorage"
 
 interface Message extends StoredMessage {
   id: string
@@ -197,26 +198,27 @@ const MobileBranchPanel = ({
   return (
     <>
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+      <div
+        className="fixed inset-0 bg-black/50 z-20 lg:hidden"
         onClick={onClose}
+        aria-hidden="true"
       />
       
       {/* Panel */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-full max-w-sm transform transition-transform duration-300 lg:relative lg:translate-x-0 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      } ${isDark ? 'bg-black/95' : 'bg-white/95'} backdrop-blur-xl border-r ${
-        isDark ? 'border-white/10' : 'border-black/10'
+      <div className={`fixed inset-y-0 left-0 z-40 w-full max-w-sm transform transition-transform duration-300 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      } ${isDark ? 'bg-[#00171c]/95' : 'bg-[#f7f8f9]/95'} backdrop-blur-xl border-r ${
+        isDark ? 'border-[#54ad95]/30' : 'border-[#0088fb]/30'
       }`}>
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200/20">
-          <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>
+          <h3 className={`font-bold ${isDark ? "text-[#f0f8ff]" : "text-[#00171c]"}`}>
             Branches
           </h3>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/10'}`}
+            className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-[#54ad95]/20' : 'hover:bg-[#0088fb]/20'}`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -226,13 +228,13 @@ const MobileBranchPanel = ({
           {/* Current Branch Info */}
           {currentBranch && (
             <div className={`p-4 rounded-xl ${
-              isDark ? "bg-purple-500/20 border-purple-500/30 text-purple-300" : "bg-indigo-500/10 border-indigo-500/20 text-indigo-700"
+              isDark ? "bg-[#54ad95]/20 border-[#54ad95]/30 text-[#54ad95]" : "bg-[#0088fb]/10 border-[#0088fb]/20 text-[#0088fb]"
             } backdrop-blur-sm border`}>
               <div className="flex items-center gap-2 mb-2">
                 <GitBranch className="w-4 h-4" />
                 <p className="font-semibold text-sm">{currentBranch.name}</p>
               </div>
-              <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+              <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#00171c]/70"}`}>
                 {messages.length} messages
               </p>
             </div>
@@ -244,8 +246,8 @@ const MobileBranchPanel = ({
               onClick={() => setShowNewBranchDialog(true)}
               className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
                 isDark
-                  ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                  : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
+                  ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                  : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
               } backdrop-blur-sm border flex items-center justify-center gap-2 text-sm`}
             >
               <Plus className="w-4 h-4" />
@@ -257,8 +259,8 @@ const MobileBranchPanel = ({
               disabled={!currentBranch}
               className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
                 isDark
-                  ? "bg-white/10 hover:bg-white/20 text-gray-300 border-white/20"
-                  : "bg-black/10 hover:bg-black/20 text-gray-700 border-black/20"
+                  ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
+                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
               } backdrop-blur-sm border disabled:opacity-50 flex items-center justify-center gap-2 text-sm`}
             >
               <Camera className="w-4 h-4" />
@@ -278,26 +280,26 @@ const MobileBranchPanel = ({
                 className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${
                   currentBranch?.id === branch.id
                     ? isDark
-                      ? "bg-purple-500/30 border-purple-500/50"
-                      : "bg-indigo-500/20 border-indigo-500/40"
+                      ? "bg-[#54ad95]/30 border-[#54ad95]/50"
+                      : "bg-[#0088fb]/20 border-[#0088fb]/40"
                     : isDark
-                      ? "bg-white/5 hover:bg-white/10 border-white/10"
-                      : "bg-black/5 hover:bg-black/10 border-black/10"
+                      ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 border-[#54ad95]/20"
+                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 border-[#0088fb]/20"
                 } backdrop-blur-sm border`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-medium text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                  <span className={`font-medium text-sm ${isDark ? "text-[#f0f8ff]" : "text-[#00171c]"}`}>
                     {branch.name}
                   </span>
                   {branch.parentId && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                      isDark ? "bg-yellow-500/20 text-yellow-300" : "bg-yellow-500/10 text-yellow-700"
+                      isDark ? "bg-[#54ad95]/20 text-[#54ad95]" : "bg-[#0088fb]/10 text-[#0088fb]"
                     }`}>
                       forked
                     </span>
                   )}
                 </div>
-                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#00171c]/70"}`}>
                   {branch.messages.length} msgs • {branch.createdAt.toLocaleDateString()}
                 </p>
               </div>
@@ -307,11 +309,11 @@ const MobileBranchPanel = ({
 
         {/* New Branch Dialog */}
         {showNewBranchDialog && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-[#00171c]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className={`p-6 rounded-2xl w-full max-w-sm ${
-              isDark ? "bg-gray-900/95 border-white/20" : "bg-white/95 border-black/20"
+              isDark ? "bg-[#00171c]/95 border-[#54ad95]/30" : "bg-[#f7f8f9]/95 border-[#0088fb]/30"
             } backdrop-blur-xl border shadow-2xl`}>
-              <h3 className={`text-lg font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+              <h3 className={`text-lg font-bold mb-4 ${isDark ? "text-[#f0f8ff]" : "text-[#00171c]"}`}>
                 Create New Branch
               </h3>
               <input
@@ -322,10 +324,10 @@ const MobileBranchPanel = ({
                 placeholder="Branch name..."
                 className={`w-full px-4 py-3 rounded-xl text-base ${
                   isDark
-                    ? "bg-white/10 border-white/20 text-white placeholder-gray-400"
-                    : "bg-black/10 border-black/20 text-gray-900 placeholder-gray-600"
+                    ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff] placeholder-[#f0f8ff]/50"
+                    : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#00171c] placeholder-[#00171c]/50"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-purple-500/50" : "focus:ring-indigo-500/50"
+                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#0088fb]/50"
                 } mb-4`}
                 autoFocus
               />
@@ -334,8 +336,8 @@ const MobileBranchPanel = ({
                   onClick={handleCreateBranch}
                   className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
                     isDark
-                      ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                      : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
+                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
                   } backdrop-blur-sm border`}
                 >
                   Create
@@ -344,8 +346,8 @@ const MobileBranchPanel = ({
                   onClick={() => setShowNewBranchDialog(false)}
                   className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
                     isDark
-                      ? "bg-white/10 hover:bg-white/20 text-gray-300 border-white/20"
-                      : "bg-black/10 hover:bg-black/20 text-gray-700 border-black/20"
+                      ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
+                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
                   } backdrop-blur-sm border`}
                 >
                   Cancel
@@ -375,6 +377,13 @@ function App() {
   const [showBranchPanel, setShowBranchPanel] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false)
+  const [temperature, setTemperature] = useState(DEFAULT_SETTINGS.temperature)
+  const [maxTokens, setMaxTokens] = useState(DEFAULT_SETTINGS.maxTokens)
+  const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
+  const [showTimestamps, setShowTimestamps] = useState(DEFAULT_SETTINGS.showTimestamps)
 
   // RedPill API configuration
   const REDPILL_API_URL = "https://api.redpill.ai/v1"
@@ -400,7 +409,25 @@ function App() {
     } else {
       setShowApiKeyModal(true)
     }
+    
+    // Load saved settings
+    const savedSettings = secureStorage.loadSettings()
+    setTemperature(savedSettings.temperature)
+    setMaxTokens(savedSettings.maxTokens)
+    setEnableTimestamps(savedSettings.enableTimestamps)
+    setShowTimestamps(savedSettings.showTimestamps)
   }, [])
+  
+  // Save settings when they change
+  useEffect(() => {
+    const currentSettings: AppSettings = {
+      temperature,
+      maxTokens,
+      enableTimestamps,
+      showTimestamps
+    }
+    secureStorage.saveSettings(currentSettings)
+  }, [temperature, maxTokens, enableTimestamps, showTimestamps])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -455,37 +482,158 @@ function App() {
     }
   }
 
+  // Helper function to format a message with timestamp
+  const formatMessageWithTimestamp = (msg: Message): string => {
+    const timestamp = new Date(msg.timestamp).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
+    
+    return `[TIME: ${timestamp}] ${msg.content}`;
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || isLoading || !apiKey) {
+    console.log("sendMessage called with input:", input)
+    
+    // Store the current input value to ensure we use it throughout this function
+    // This prevents issues with state updates clearing the input before we use it
+    const currentInput = input;
+    
+    // Don't proceed if there's no input, we're already loading, or there's no API key
+    if (!currentInput.trim() || isLoading || !apiKey) {
+      console.log("Not sending message:", {
+        emptyInput: !currentInput.trim(),
+        isLoading,
+        noApiKey: !apiKey
+      })
       if (!apiKey) setShowApiKeyModal(true)
       return
     }
+    
+    // Log settings state for debugging
+    console.log("Current settings:", {
+      enableTimestamps,
+      showTimestamps,
+      temperature,
+      maxTokens
+    })
+    
+    // We no longer intercept history queries - let the LLM handle them
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: currentInput,
       timestamp: new Date(),
     }
 
-    const updatedMessages = [...messages, userMessage]
+    // Always update messages array immediately to ensure history is preserved
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     
-    // In ephemeral mode, clear input immediately and show thinking
-    if (mode === "ephemeral") {
-      setInput("")
-      setCurrentResponse("Thinking...")
-    } else {
-      setMessages(updatedMessages)
-    }
+    // Clear input and show thinking state
+    // Clear input first to prevent "double send" issues
+    setInput("");
     
-    setIsLoading(true)
-    setIsInResponseMode(true)
+    // Then update UI state
+    setCurrentResponse("Thinking...");
+    setIsLoading(true);
+    setIsInResponseMode(true);
     
+    // Save to branch if in structured mode
     if (mode === "structured" && currentBranch) {
-      await ConversationStore.updateBranch(currentBranch.id, updatedMessages)
+      await ConversationStore.updateBranch(currentBranch.id, updatedMessages);
     }
+    
+    console.log("Updated messages array with user message, now has", updatedMessages.length, "messages");
+    
+    // Check if there are previous messages to reference
+    const hasPreviousMessages = messages.length > 0;
 
     try {
+      // Create a more explicit system message about conversation history with time handling instructions
+      const systemMessage = {
+        role: "system",
+        content: `You are an AI assistant in a chat application. This is ${messages.length > 0 ?
+          "a continuing conversation." : "the beginning of a new conversation."}
+          
+          IMPORTANT INSTRUCTIONS FOR TIME-BASED QUERIES:
+          1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
+          2. When the user asks about previous messages from specific times or time ranges, you should:
+             - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
+             - Find relevant messages from those times by looking at the timestamps
+             - Summarize or quote those messages accurately
+             - Include the exact timestamps when referencing messages
+          3. Handle natural language time expressions like:
+             - "What did we discuss earlier?"
+             - "Show me what I said about X around 5pm"
+             - "What were we talking about 20 minutes ago?"
+             - "What did I ask yesterday?"
+          
+          The current conversation has ${messages.length} previous messages.
+          The current time is ${new Date().toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          })}.
+          Always maintain context from previous messages in the conversation.`
+      };
+      
+      // Make sure we're sending ALL previous messages to maintain conversation history
+      // Get all messages including the new user message
+      const allMessages = [...messages, userMessage];
+      console.log("Sending conversation history with", allMessages.length, "messages");
+      
+      // Format messages for the API with explicit timestamps for all messages
+      const timestampedMessages = allMessages.map(m => {
+        // For user messages, always add a clear TIME prefix
+        if (m.role === "user") {
+          // Format timestamp with explicit options to ensure consistent display
+          const timestamp = new Date(m.timestamp).toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          });
+          
+          // Remove any existing timestamp format
+          const cleanedContent = m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]\s*/i, '');
+          
+          // Add the standardized TIME prefix
+          const content = `[TIME: ${timestamp}] ${cleanedContent}`;
+          console.log("Added standardized timestamp to message:", content);
+          
+          return {
+            role: m.role,
+            content: content
+          };
+        } else {
+          // For assistant messages, keep as is
+          return {
+            role: m.role,
+            content: m.content
+          };
+        }
+      });
+      
+      // Combine system message with the conversation history
+      const apiMessages = [systemMessage, ...timestampedMessages];
+      
       const response = await fetch(`${REDPILL_API_URL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -494,8 +642,9 @@ function App() {
         },
         body: JSON.stringify({
           model: selectedModel,
-          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
-          temperature: 0.7,
+          messages: apiMessages,
+          temperature: temperature,
+          max_tokens: maxTokens,
           stream: false,
         })
       })
@@ -516,16 +665,15 @@ function App() {
         attestation: attestation || undefined,
       }
 
-      const finalMessages = [...updatedMessages, assistantMessage]
+      // Add the assistant's response to the messages array
+      const finalMessages = [...messages, assistantMessage];
       
-      if (mode === 'ephemeral') {
-        // In ephemeral mode, replace the input with the response
-        setCurrentResponse(responseContent)
-      } else {
-        // In structured mode, update messages with the response
-        setMessages(finalMessages)
-        setCurrentResponse(responseContent)
-      }
+      // Always update the messages array to preserve conversation history
+      setMessages(finalMessages);
+      console.log("Updated messages array with assistant response, now has", finalMessages.length, "messages");
+      
+      // Show the response in the UI
+      setCurrentResponse(responseContent);
 
       if (mode === "structured" && currentBranch) {
         await ConversationStore.updateBranch(currentBranch.id, finalMessages)
@@ -540,14 +688,58 @@ function App() {
   }
 
   const returnToInputState = () => {
-    setIsInResponseMode(false)
+    console.log("Returning to input state")
+    
+    // Prevent multiple rapid calls
+    if (!isInResponseMode) {
+      console.log("Already in input state, ignoring call")
+      return
+    }
+    
+    // First clear the response
     setCurrentResponse("")
-    setInput("")
+    
+    // Then switch mode and clear input
+    setIsInResponseMode(false)
+    
+    // Don't clear input immediately to prevent "eating" messages
+    // This allows any pending input to be sent properly
     setTimeout(() => {
+      setInput("")
+    }, 50)
+    
+    // Focus the textarea using multiple approaches for reliability
+    const focusTextarea = () => {
+      console.log("Attempting to focus textarea")
+      
+      // Try using the ref first
       if (textareaRef.current) {
         textareaRef.current.focus()
+        console.log("Textarea focused via ref")
+        return true
       }
-    }, 100)
+      
+      // Fallback to getElementById
+      const textarea = document.getElementById('chat-input-textarea') as HTMLTextAreaElement
+      if (textarea) {
+        textarea.focus()
+        console.log("Textarea focused via getElementById")
+        return true
+      }
+      
+      console.warn("Failed to focus textarea - element not found")
+      return false
+    }
+    
+    // Try immediately
+    const immediate = focusTextarea()
+    
+    // If immediate focus failed, try with increasing delays
+    if (!immediate) {
+      setTimeout(focusTextarea, 50)
+      setTimeout(focusTextarea, 150)
+      setTimeout(focusTextarea, 300)
+    }
   }
 
   const handleBranchSelect = async (branch: Branch) => {
@@ -596,35 +788,61 @@ function App() {
     handleNewConversation()
   }
 
+  // Handle keyboard events in the textarea
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Always handle Enter key in the textarea, regardless of mode
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (input.trim()) {
-        sendMessage()
+      console.log("Enter key pressed in textarea, isInResponseMode:", isInResponseMode)
+      
+      // If we're in response mode, return to input mode
+      if (isInResponseMode) {
+        console.log("Returning to input state from textarea handleKeyDown")
+        returnToInputState()
+        return
+      }
+      
+      // Otherwise, send the message if there's content
+      if (input.trim() && !isLoading) {
+        const messageToSend = input; // Store the input before it gets cleared
+        console.log("Sending message from handleKeyDown:", messageToSend)
+        // We need to call sendMessage() in a setTimeout to ensure React state updates properly
+        setTimeout(() => {
+          if (messageToSend.trim()) {
+            sendMessage();
+          }
+        }, 0);
       }
     }
   }
 
-  // Handle keydown events for the response view
+  // Global keyboard event handler for Enter key in response mode
   useEffect(() => {
-    const handleResponseKeyDown = (e: KeyboardEvent) => {
-      if (isInResponseMode && !isLoading && e.key === 'Enter') {
-        e.preventDefault()
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Only handle Enter key in response mode and when not in a form element
+      // This prevents interference with textarea input
+      const isInFormElement = e.target instanceof HTMLTextAreaElement ||
+                             e.target instanceof HTMLInputElement ||
+                             e.target instanceof HTMLSelectElement;
+                             
+      if (e.key === 'Enter' && !e.shiftKey && isInResponseMode && !isInFormElement) {
+        console.log("Enter key pressed globally while in response mode")
         returnToInputState()
       }
     }
-
-    if (isInResponseMode && !isLoading) {
-      window.addEventListener('keydown', handleResponseKeyDown)
-      return () => {
-        window.removeEventListener('keydown', handleResponseKeyDown)
-      }
+    
+    // Add global event listener
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown)
     }
-  }, [isInResponseMode, isLoading])
+  }, [isInResponseMode]) // Re-add listener when response mode changes
 
   const themeClasses = isDark
-    ? "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900"
-    : "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
+    ? "bg-gradient-to-br from-[#00171c] via-[#0088fb]/30 to-[#00171c]"
+    : "bg-gradient-to-br from-[#f7f8f9] via-[#f0f8ff] to-[#f7f8f9]"
 
   return (
     <div className={`min-h-screen transition-all duration-1000 ${themeClasses} flex flex-col relative overflow-hidden`}>
@@ -632,19 +850,19 @@ function App() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className={`absolute top-1/4 left-1/4 w-64 h-64 lg:w-96 lg:h-96 rounded-full blur-3xl opacity-20 transition-all duration-1000 ${
-            isDark ? "bg-purple-500" : "bg-blue-400"
+            isDark ? "bg-[#54ad95]" : "bg-[#54ad95]/70"
           }`}
           style={{ animation: "float 6s ease-in-out infinite" }}
         />
         <div
           className={`absolute bottom-1/4 right-1/4 w-48 h-48 lg:w-80 lg:h-80 rounded-full blur-3xl opacity-15 transition-all duration-1000 ${
-            isDark ? "bg-blue-500" : "bg-purple-400"
+            isDark ? "bg-[#0088fb]" : "bg-[#0088fb]/60"
           }`}
           style={{ animation: "float 8s ease-in-out infinite reverse" }}
         />
         <div
           className={`absolute top-1/2 left-1/2 w-32 h-32 lg:w-64 lg:h-64 rounded-full blur-2xl opacity-10 transition-all duration-1000 ${
-            isDark ? "bg-pink-500" : "bg-cyan-400"
+            isDark ? "bg-[#54ad95]/80" : "bg-[#54ad95]/40"
           }`}
           style={{ animation: "float 10s ease-in-out infinite" }}
         />
@@ -665,7 +883,7 @@ function App() {
 
       {/* Header */}
       <div className={`transition-all duration-500 ${
-        isDark ? "bg-black/20 border-b border-white/10" : "bg-white/20 border-b border-black/10"
+        isDark ? "bg-[#00171c]/80 border-b border-[#54ad95]/30" : "bg-[#f0f8ff]/80 border-b border-[#54ad95]/20"
       } backdrop-blur-xl sticky top-0 z-30`}>
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -721,7 +939,7 @@ function App() {
               </button>
               
               <Sparkles className={`w-6 h-6 transition-colors duration-500 ${
-                isDark ? "text-purple-400" : "text-indigo-600"
+                isDark ? "text-[#54ad95]" : "text-[#0088fb]"
               }`} />
               <h1 className={`text-lg lg:text-2xl font-bold transition-colors duration-500 ${
                 isDark ? "text-white" : "text-gray-900"
@@ -741,11 +959,11 @@ function App() {
                   className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "ephemeral"
                       ? isDark
-                        ? "bg-yellow-500/30 text-yellow-300 shadow-lg shadow-yellow-500/20"
-                        : "bg-yellow-500/20 text-yellow-700 shadow-lg shadow-yellow-500/10"
+                        ? "bg-[#54ad95]/30 text-[#54ad95] shadow-lg shadow-[#54ad95]/20"
+                        : "bg-[#54ad95]/20 text-[#00171c] shadow-lg shadow-[#54ad95]/10"
                       : isDark
-                        ? "text-gray-300 hover:text-white hover:bg-white/10"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-black/10"
+                        ? "text-[#f0f8ff] hover:text-white hover:bg-white/10"
+                        : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
                   }`}
                 >
                   ⚡ Ephemeral
@@ -760,11 +978,11 @@ function App() {
                   className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "structured"
                       ? isDark
-                        ? "bg-blue-500/30 text-blue-300 shadow-lg shadow-blue-500/20"
-                        : "bg-blue-500/20 text-blue-700 shadow-lg shadow-blue-500/10"
+                        ? "bg-[#0088fb]/30 text-[#0088fb] shadow-lg shadow-[#0088fb]/20"
+                        : "bg-[#0088fb]/20 text-[#0088fb] shadow-lg shadow-[#0088fb]/10"
                       : isDark
-                        ? "text-gray-300 hover:text-white hover:bg-white/10"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-black/10"
+                        ? "text-[#f0f8ff] hover:text-white hover:bg-white/10"
+                        : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
                   }`}
                 >
                   🌿 Structured
@@ -776,10 +994,10 @@ function App() {
                 onClick={() => setIsDark(!isDark)}
                 className={`p-3 rounded-xl transition-all duration-500 ${
                   isDark
-                    ? "bg-white/10 hover:bg-white/20 text-yellow-300"
-                    : "bg-black/10 hover:bg-black/20 text-indigo-600"
+                    ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]"
+                    : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#0088fb]"
                 } backdrop-blur-sm border ${
-                  isDark ? "border-white/20" : "border-black/20"
+                  isDark ? "border-[#54ad95]/30" : "border-[#0088fb]/30"
                 } hover:scale-105 active:scale-95`}
               >
                 {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -789,9 +1007,9 @@ function App() {
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className={`px-4 py-2.5 text-sm rounded-xl transition-all duration-500 ${
-                  isDark ? "bg-white/10 border-white/20 text-white" : "bg-black/10 border-black/20 text-gray-900"
+                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#00171c]"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-purple-500/50" : "focus:ring-indigo-500/50"
+                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#0088fb]/50"
                 }`}
               >
                 {TEE_MODELS.map((model) => (
@@ -801,26 +1019,35 @@ function App() {
                 ))}
               </select>
 
-              <button
-                onClick={verifyAttestation}
-                disabled={isVerifying}
-                className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
-                  isDark
-                    ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                    : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
-                } backdrop-blur-sm border disabled:opacity-50 hover:scale-105 active:scale-95 shadow-lg ${
-                  isDark ? "shadow-purple-500/20" : "shadow-indigo-500/10"
-                }`}
-              >
-                {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
-              </button>
+              <div className="flex flex-col">
+                <button
+                  onClick={verifyAttestation}
+                  disabled={isVerifying}
+                  className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
+                    isDark
+                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                  } backdrop-blur-sm border disabled:opacity-50 hover:scale-105 active:scale-95 shadow-lg ${
+                    isDark ? "shadow-[#54ad95]/20" : "shadow-[#0088fb]/10"
+                  }`}
+                >
+                  {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
+                </button>
+                {attestation && attestation.signing_address && (
+                  <div className={`text-xs mt-1 text-center truncate max-w-[180px] ${
+                    isDark ? "text-[#54ad95]/70" : "text-[#0088fb]/70"
+                  }`} title={attestation.signing_address}>
+                    {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
+                  </div>
+                )}
+              </div>
               {apiKey ? (
                 <button
                   onClick={handleLogout}
                   className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
                     isDark
-                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30"
-                      : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-red-500/30"
+                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-[#54ad95]/30"
+                      : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-[#0088fb]/30"
                   } backdrop-blur-sm border hover:scale-105 active:scale-95`}
                 >
                   Logout
@@ -830,8 +1057,8 @@ function App() {
                   onClick={() => setShowApiKeyModal(true)}
                   className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
                     isDark
-                      ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                      : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
+                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
                   } backdrop-blur-sm border hover:scale-105 active:scale-95`}
                 >
                   Login with API Key
@@ -843,8 +1070,8 @@ function App() {
             <button
               onClick={() => setIsDark(!isDark)}
               className={`p-2 rounded-xl transition-all duration-500 ${
-                isDark ? "bg-white/10 hover:bg-white/20 text-yellow-300" : "bg-black/10 hover:bg-black/20 text-indigo-600"
-              } backdrop-blur-sm border ${isDark ? "border-white/20" : "border-black/20"} lg:hidden`}
+                isDark ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#54ad95]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#0088fb]"
+              } backdrop-blur-sm border ${isDark ? "border-[#54ad95]/30" : "border-[#0088fb]/30"} lg:hidden`}
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
@@ -860,8 +1087,8 @@ function App() {
             onClick={() => setShowMobileMenu(false)}
           />
           <div className={`fixed top-0 left-0 right-0 z-50 p-4 ${
-            isDark ? "bg-black/95" : "bg-white/95"
-          } backdrop-blur-xl border-b ${isDark ? "border-white/10" : "border-black/10"}`}>
+            isDark ? "bg-[#00171c]/95" : "bg-[#f7f8f9]/95"
+          } backdrop-blur-xl border-b ${isDark ? "border-[#54ad95]/20" : "border-[#0088fb]/20"}`}>
             <div className="flex items-center justify-between mb-4">
               <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Menu</h3>
               <button
@@ -875,8 +1102,8 @@ function App() {
             <div className="space-y-3">
               {/* Mode Switcher */}
               <div className={`flex rounded-xl p-1 ${
-                isDark ? "bg-white/10" : "bg-black/10"
-              } backdrop-blur-sm border ${isDark ? "border-white/20" : "border-black/20"}`}>
+                isDark ? "bg-[#00171c]/60" : "bg-[#f0f8ff]/60"
+              } backdrop-blur-sm border ${isDark ? "border-[#54ad95]/30" : "border-[#0088fb]/30"}`}>
                 <button
                   onClick={() => {
                     setMode("ephemeral")
@@ -884,8 +1111,8 @@ function App() {
                   }}
                   className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "ephemeral"
-                      ? isDark ? "bg-yellow-500/30 text-yellow-300" : "bg-yellow-500/20 text-yellow-700"
-                      : isDark ? "text-gray-300" : "text-gray-600"
+                      ? isDark ? "bg-[#54ad95]/30 text-[#54ad95]" : "bg-[#54ad95]/20 text-[#00171c]"
+                      : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
                   }`}
                 >
                   ⚡ Ephemeral
@@ -900,8 +1127,8 @@ function App() {
                   }}
                   className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                     mode === "structured"
-                      ? isDark ? "bg-blue-500/30 text-blue-300" : "bg-blue-500/20 text-blue-700"
-                      : isDark ? "text-gray-300" : "text-gray-600"
+                      ? isDark ? "bg-[#0088fb]/30 text-[#0088fb]" : "bg-[#0088fb]/20 text-[#0088fb]"
+                      : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
                   }`}
                 >
                   🌿 Structured
@@ -912,9 +1139,9 @@ function App() {
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className={`w-full px-4 py-3 text-base rounded-xl ${
-                  isDark ? "bg-white/10 border-white/20 text-white" : "bg-black/10 border-black/20 text-gray-900"
+                  isDark ? "bg-[#00171c]/60 border-[#54ad95]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#00171c]"
                 } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-purple-500/50" : "focus:ring-indigo-500/50"
+                  isDark ? "focus:ring-[#54ad95]/50" : "focus:ring-[#0088fb]/50"
                 }`}
               >
                 {TEE_MODELS.map((model) => (
@@ -931,19 +1158,26 @@ function App() {
                 }}
                 className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                   isDark
-                    ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                    : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
+                    ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                    : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
                 } backdrop-blur-sm border`}
               >
                 {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
               </button>
+              {attestation && attestation.signing_address && (
+                <div className={`text-xs mt-1 text-center truncate ${
+                  isDark ? "text-[#54ad95]/70" : "text-[#0088fb]/70"
+                }`} title={attestation.signing_address}>
+                  {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
+                </div>
+              )}
 
               <button
                 onClick={handleNewConversation}
                 className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                   isDark
-                    ? "bg-white/10 hover:bg-white/20 text-gray-300 border-white/20"
-                    : "bg-black/10 hover:bg-black/20 text-gray-700 border-black/20"
+                    ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/20"
+                    : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
                 } backdrop-blur-sm border`}
               >
                 New Conversation
@@ -954,8 +1188,8 @@ function App() {
                   onClick={handleLogout}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                     isDark
-                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30"
-                      : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-red-500/30"
+                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-[#54ad95]/30"
+                      : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-[#0088fb]/30"
                   } backdrop-blur-sm border`}
                 >
                   Logout
@@ -968,8 +1202,8 @@ function App() {
                   }}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                     isDark
-                      ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                      : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
+                      ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
                   } backdrop-blur-sm border`}
                 >
                   Login with API Key
@@ -981,14 +1215,143 @@ function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col px-4 py-4 lg:py-8 max-w-4xl mx-auto w-full">
+      <div
+        className="flex-1 flex flex-col px-4 py-4 lg:py-8 max-w-4xl mx-auto w-full relative z-10"
+        onClick={() => {
+          if (showBranchPanel) {
+            setShowBranchPanel(false);
+          }
+        }}
+      >
+        {/* Settings Dropdown */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+              isDark
+                ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff] border-[#54ad95]/30"
+                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/30"
+            } backdrop-blur-sm border text-sm font-medium`}
+          >
+            <SettingsIcon className="w-4 h-4" />
+            Settings
+            {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          
+          {showSettings && (
+            <div className={`mt-2 p-4 rounded-xl transition-all duration-500 ${
+              isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#0088fb]/30"
+            } backdrop-blur-xl border`}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Temperature: {temperature}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={temperature}
+                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    Lower values = more focused, higher values = more creative
+                  </p>
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Max Tokens: {maxTokens}
+                  </label>
+                  <input
+                    type="range"
+                    min="256"
+                    max="8192"
+                    step="256"
+                    value={maxTokens}
+                    onChange={(e) => setMaxTokens(parseInt(e.target.value))}
+                    className="w-full"
+                  />
+                  <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    Maximum length of the response
+                  </p>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                      Add Timestamps to Messages (Your Local Time)
+                    </label>
+                    <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                      <input
+                        type="checkbox"
+                        id="toggle-timestamps"
+                        checked={enableTimestamps}
+                        onChange={() => {
+                          console.log("Toggling enableTimestamps from", enableTimestamps, "to", !enableTimestamps);
+                          setEnableTimestamps(!enableTimestamps);
+                        }}
+                        className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                      />
+                      <label
+                        htmlFor="toggle-timestamps"
+                        className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                          enableTimestamps
+                            ? isDark ? "bg-[#54ad95]" : "bg-[#0088fb]"
+                            : isDark ? "bg-gray-600" : "bg-gray-300"
+                        }`}
+                      ></label>
+                    </div>
+                  </div>
+                  
+                  {enableTimestamps && (
+                    <div className="mt-2 flex items-center justify-between">
+                      <label className={`text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                        Show Timestamps in Messages
+                      </label>
+                      <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                        <input
+                          type="checkbox"
+                          id="toggle-show-timestamps"
+                          checked={showTimestamps}
+                          onChange={() => setShowTimestamps(!showTimestamps)}
+                          className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                        />
+                        <label
+                          htmlFor="toggle-show-timestamps"
+                          className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                            showTimestamps
+                              ? isDark ? "bg-[#54ad95]" : "bg-[#0088fb]"
+                              : isDark ? "bg-gray-600" : "bg-gray-300"
+                          }`}
+                        ></label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
         {/* One Bubble Chat Interface */}
         <div className={`flex-1 transition-all duration-500 ${
-          isDark ? "bg-white/10 border-white/20" : "bg-black/10 border-black/20"
+          isDark ? "bg-[#00171c]/60 border-[#54ad95]/30" : "bg-[#f0f8ff]/60 border-[#0088fb]/30"
         } backdrop-blur-xl border rounded-2xl p-4 lg:p-6 shadow-2xl overflow-hidden flex flex-col min-h-0`}>
           
           {isInResponseMode ? (
-            <div className="flex-1 overflow-y-auto flex items-center justify-center min-h-0">
+            <div
+              className="flex-1 overflow-y-auto flex items-center justify-center min-h-0"
+              tabIndex={0} // Make div focusable
+              onKeyDown={(e) => { // Add keyboard handler directly to response div
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  console.log("Enter key pressed in response div");
+                  returnToInputState();
+                }
+              }}
+            >
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
@@ -998,8 +1361,34 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <div className="w-full">
+                <div
+                  className="w-full"
+                  onClick={() => {
+                    // Add click handler to entire response area
+                    // Double-click anywhere on the response to return to input mode
+                    console.log("Response area clicked");
+                  }}
+                  onDoubleClick={() => {
+                    console.log("Response area double-clicked");
+                    returnToInputState();
+                  }}
+                >
                   <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh]`}>
+                    {enableTimestamps && showTimestamps && messages.length > 0 && messages[messages.length - 1].timestamp && (
+                      <div className={`text-xs mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {new Date(messages[messages.length - 1].timestamp).toLocaleString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                          hour12: true,
+                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Explicitly use local time zone
+                          timeZoneName: 'short'
+                        })}
+                      </div>
+                    )}
                     <ReactMarkdown
                       components={{
                         p: ({ node, ...props }: any) => <p className="mb-4 lg:mb-6 last:mb-0 text-base lg:text-xl leading-relaxed" {...props} />,
@@ -1011,7 +1400,7 @@ function App() {
                         a: ({ node, ...props }: any) => (
                           <a
                             className={`transition-colors duration-300 hover:underline ${
-                              isDark ? "text-blue-400" : "text-blue-600"
+                              isDark ? "text-[#0088fb]" : "text-[#0088fb]"
                             }`}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1022,7 +1411,7 @@ function App() {
                           inline ? (
                             <code
                               className={`px-2 py-1 rounded text-sm transition-colors duration-500 ${
-                                isDark ? "bg-black/30" : "bg-white/50"
+                                isDark ? "bg-[#00171c]/80" : "bg-[#f0f8ff]/80"
                               }`}
                               {...props}
                             >
@@ -1031,7 +1420,7 @@ function App() {
                           ) : (
                             <pre
                               className={`p-4 rounded-lg my-3 overflow-x-auto transition-colors duration-500 ${
-                                isDark ? "bg-black/30" : "bg-white/50"
+                                isDark ? "bg-[#00171c]/80" : "bg-[#f0f8ff]/80"
                               }`}
                             >
                               <code className="text-sm" {...props}>
@@ -1048,22 +1437,33 @@ function App() {
                   {/* Response Actions */}
                   <div className="mt-4 lg:mt-6 pt-4 border-t border-gray-500/20 flex flex-col sm:flex-row justify-center gap-3">
                     <button
-                      onClick={returnToInputState}
+                      onClick={() => {
+                        console.log("New Message button clicked");
+                        returnToInputState();
+                        // Force focus on textarea after a delay
+                        setTimeout(() => {
+                          const textarea = document.getElementById('chat-input-textarea') as HTMLTextAreaElement;
+                          if (textarea) {
+                            textarea.focus();
+                            console.log("Textarea focused via getElementById");
+                          }
+                        }, 150);
+                      }}
                       className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                         isDark
-                          ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-200"
-                          : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700"
+                          ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95]"
+                          : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb]"
                       } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
                     >
-                      New Message
+                      New Message (or press Enter)
                     </button>
                     {messages.length > 0 && mode === "ephemeral" && (
                       <button
                         onClick={handlePinConversation}
                         className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
                           isDark
-                            ? "bg-blue-500/30 hover:bg-blue-500/40 text-blue-200"
-                            : "bg-blue-500/20 hover:bg-blue-500/30 text-blue-700"
+                            ? "bg-[#0088fb]/30 hover:bg-[#0088fb]/40 text-[#0088fb]"
+                            : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb]"
                         } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
                       >
                         📌 Save
@@ -1093,6 +1493,7 @@ function App() {
                       style={{ minHeight: '60px', maxHeight: '120px' }}
                       rows={1}
                       autoFocus
+                      id="chat-input-textarea"
                     />
                     
                     {/* Send Button - Mobile floating */}
@@ -1101,8 +1502,8 @@ function App() {
                       disabled={isLoading || !input.trim()}
                       className={`absolute bottom-2 right-2 p-2 lg:p-3 rounded-full transition-all duration-300 ${
                         isDark
-                          ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
-                          : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-700 border-indigo-500/30"
+                          ? "bg-[#54ad95]/30 hover:bg-[#54ad95]/40 text-[#54ad95] border-[#54ad95]/30"
+                          : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
                       } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
                     >
                       <Send className="w-4 h-4 lg:w-5 lg:h-5" />
@@ -1120,8 +1521,8 @@ function App() {
                         onClick={handleNewConversation}
                         className={`px-2 py-1 text-xs rounded transition-all duration-300 ${
                           isDark
-                            ? "bg-white/10 hover:bg-white/20 text-gray-300"
-                            : "bg-black/10 hover:bg-black/20 text-gray-700"
+                            ? "bg-[#00171c]/60 hover:bg-[#00171c]/80 text-[#f0f8ff]"
+                            : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c]"
                         } backdrop-blur-sm hover:scale-105 active:scale-95`}
                       >
                         Clear
@@ -1145,6 +1546,23 @@ function App() {
       </div>
 
       <style jsx>{`
+        /* Toggle switch styles */
+        .toggle-checkbox:checked {
+          right: 0;
+          border-color: ${isDark ? '#54ad95' : '#0088fb'};
+        }
+        .toggle-checkbox:checked + .toggle-label {
+          background-color: ${isDark ? '#54ad95' : '#0088fb'};
+        }
+        .toggle-checkbox {
+          right: 0;
+          z-index: 10;
+          border-color: ${isDark ? '#00171c' : '#f0f8ff'};
+          transition: all 0.3s;
+        }
+        .toggle-label {
+          transition: all 0.3s;
+        }
         @keyframes float {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
           50% { transform: translateY(-20px) rotate(180deg); }
