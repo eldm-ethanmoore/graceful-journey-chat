@@ -3,9 +3,11 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon } from "lucide-react"
+import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye } from "lucide-react"
 import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
 import type { AppSettings } from "./utils/secureStorage"
+import { ContextPreview } from "./ContextPreview"
+import { ModelSwitchConfirmModal } from "./ModelSwitchConfirmModal"
 
 interface Message extends StoredMessage {
   id: string
@@ -144,14 +146,17 @@ const ApiKeyModal = ({ isOpen, onClose, onSave, isDark }: {
   )
 }
 
-const MobileBranchPanel = ({ 
-  currentBranch, 
-  onBranchSelect, 
-  onCreateBranch, 
-  messages, 
-  isDark, 
+const MobileBranchPanel = ({
+  currentBranch,
+  onBranchSelect,
+  onCreateBranch,
+  messages,
+  isDark,
   isOpen,
-  onClose
+  onClose,
+  setShowMobileMenu,
+  handleNewConversation,
+  setIsDark
 }: {
   currentBranch: Branch | null
   onBranchSelect: (branch: Branch) => void
@@ -160,6 +165,9 @@ const MobileBranchPanel = ({
   isDark: boolean
   isOpen: boolean
   onClose: () => void
+  setShowMobileMenu: (show: boolean) => void
+  handleNewConversation: () => void
+  setIsDark: (isDark: boolean) => void
 }) => {
   const [branches, setBranches] = useState<Branch[]>([])
   const [showNewBranchDialog, setShowNewBranchDialog] = useState(false)
@@ -211,20 +219,27 @@ const MobileBranchPanel = ({
         isDark ? 'border-[#2ecc71]/30' : 'border-[#54ad95]/30'
       }`}>
         
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200/20">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-lg flex items-center gap-1 ${isDark ? 'hover:bg-[#2ecc71]/20 text-[#2ecc71]' : 'hover:bg-[#0088fb]/20 text-[#0088fb]'}`}
+              aria-label="Back to chat"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              <span className="text-sm">Back</span>
+            </button>
+          </div>
           <h3 className={`font-bold ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
             Branches
           </h3>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-[#2ecc71]/20' : 'hover:bg-[#0088fb]/20'}`}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="w-10"></div> {/* Spacer for alignment */}
         </div>
 
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+        <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-140px)]">
           {/* Current Branch Info */}
           {currentBranch && (
             <div className={`p-4 rounded-xl ${
@@ -305,6 +320,22 @@ const MobileBranchPanel = ({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Mobile Header Menu Items - Only show on mobile */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200/20 lg:hidden">
+          <button
+            onClick={() => {
+              setShowMobileMenu(true);
+              onClose();
+            }}
+            className={`w-full p-3 rounded-lg flex items-center justify-center gap-2 ${
+              isDark ? 'bg-[#333333]/60 text-[#f0f8ff]' : 'bg-[#f0f8ff]/60 text-[#1a1d23]'
+            }`}
+          >
+            <Menu className="w-5 h-5" />
+            <span className="text-sm font-medium">Open Menu</span>
+          </button>
         </div>
 
         {/* New Branch Dialog */}
@@ -423,6 +454,15 @@ function App() {
   const [showBranchPanel, setShowBranchPanel] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  
+  // Context preview state
+  const [showContextPreview, setShowContextPreview] = useState(false)
+  const [contextPreviewContent, setContextPreviewContent] = useState("")
+  const [isContextEdited, setIsContextEdited] = useState(false)
+  
+  // Model switch confirmation state
+  const [showModelSwitchModal, setShowModelSwitchModal] = useState(false)
+  const [pendingModelSelection, setPendingModelSelection] = useState<string | null>(null)
   
   // Settings state
   const [showSettings, setShowSettings] = useState(false)
@@ -571,6 +611,130 @@ function App() {
     
     return `[TIME: ${timestamp}] ${msg.content}`;
   };
+  
+  // Generate context preview in Markdown format
+  const generateContextPreview = (): string => {
+    // Create system message content
+    const systemContent = `# System Message
+
+You are an AI assistant in a chat application. This is ${messages.length > 0 ?
+  "a continuing conversation." : "the beginning of a new conversation."}
+  
+IMPORTANT INSTRUCTIONS FOR TIME-BASED QUERIES:
+1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
+2. When the user asks about previous messages from specific times or time ranges, you should:
+   - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
+   - Find relevant messages from those times by looking at the timestamps
+   - Summarize or quote those messages accurately
+   - Include the exact timestamps when referencing messages
+3. Handle natural language time expressions like:
+   - "What did we discuss earlier?"
+   - "Show me what I said about X around 5pm"
+   - "What were we talking about 20 minutes ago?"
+   - "What did I ask yesterday?"
+
+IMPORTANT: DO NOT USE TIMESTAMPED DATA IF NOT ASKED! Only reference timestamps and time-based information when the user explicitly asks for historical context or references to previous messages.
+  
+The current conversation has ${messages.length} previous messages.
+The current time is ${new Date().toLocaleString(undefined, {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true,
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+})}.
+Always maintain context from previous messages in the conversation.`;
+    
+    // Format messages with timestamps
+    let markdownContent = systemContent + "\n\n";
+    
+    // Add conversation history
+    const allMessages = [...messages];
+    if (input.trim()) {
+      // Add current input as a preview message
+      allMessages.push({
+        id: "preview",
+        role: "user",
+        content: input,
+        timestamp: new Date(),
+      });
+    }
+    
+    allMessages.forEach((message, index) => {
+      const timestamp = new Date(message.timestamp).toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
+      
+      markdownContent += `# ${message.role === "user" ? "User" : "Assistant"} Message ${index + 1}\n`;
+      markdownContent += `[TIME: ${timestamp}]\n\n`;
+      markdownContent += `${message.content}\n\n`;
+      markdownContent += "---\n\n";
+    });
+    
+    return markdownContent;
+  };
+  
+  // Parse Markdown context back to API format
+  const parseMarkdownContext = (markdown: string): any[] => {
+    const messages: any[] = [];
+    let currentMessage: any = null;
+    let systemMessage: any = null;
+    
+    // Split by markdown headers
+    const sections = markdown.split(/^# /m);
+    
+    for (const section of sections) {
+      if (!section.trim()) continue;
+      
+      if (section.startsWith("System Message")) {
+        // Parse system message
+        const content = section.replace("System Message", "").trim();
+        systemMessage = {
+          role: "system",
+          content: content
+        };
+      } else if (section.startsWith("User Message") || section.startsWith("Assistant Message")) {
+        // Parse user or assistant message
+        const isUser = section.startsWith("User Message");
+        const role = isUser ? "user" : "assistant";
+        
+        // Extract timestamp if present
+        const timeMatch = section.match(/\[TIME: (.*?)\]/);
+        const timestamp = timeMatch ? timeMatch[1] : null;
+        
+        // Get content (everything after the timestamp line until the end or ---)
+        let content = section;
+        if (timestamp) {
+          content = content.split(`[TIME: ${timestamp}]`)[1];
+        }
+        
+        // Remove the message number from the first line
+        content = content.replace(/^.*Message \d+.*$/m, "").trim();
+        
+        // Remove trailing separator if present
+        content = content.replace(/---\s*$/g, "").trim();
+        
+        messages.push({
+          role: role,
+          content: content
+        });
+      }
+    }
+    
+    // Ensure system message is first
+    const result = systemMessage ? [systemMessage, ...messages] : messages;
+    return result;
+  };
 
   const sendMessage = async () => {
     console.log("sendMessage called with input:", input)
@@ -631,82 +795,99 @@ function App() {
     const hasPreviousMessages = messages.length > 0;
 
     try {
-      // Create a more explicit system message about conversation history with time handling instructions
-      const systemMessage = {
-        role: "system",
-        content: `You are an AI assistant in a chat application. This is ${messages.length > 0 ?
-          "a continuing conversation." : "the beginning of a new conversation."}
-          
-          IMPORTANT INSTRUCTIONS FOR TIME-BASED QUERIES:
-          1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
-          2. When the user asks about previous messages from specific times or time ranges, you should:
-             - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
-             - Find relevant messages from those times by looking at the timestamps
-             - Summarize or quote those messages accurately
-             - Include the exact timestamps when referencing messages
-          3. Handle natural language time expressions like:
-             - "What did we discuss earlier?"
-             - "Show me what I said about X around 5pm"
-             - "What were we talking about 20 minutes ago?"
-             - "What did I ask yesterday?"
-          
-          The current conversation has ${messages.length} previous messages.
-          The current time is ${new Date().toLocaleString(undefined, {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          })}.
-          Always maintain context from previous messages in the conversation.`
-      };
+      let apiMessages;
       
-      // Make sure we're sending ALL previous messages to maintain conversation history
-      // Get all messages including the new user message
-      const allMessages = [...messages, userMessage];
-      console.log("Sending conversation history with", allMessages.length, "messages");
-      
-      // Format messages for the API with explicit timestamps for all messages
-      const timestampedMessages = allMessages.map(m => {
-        // For user messages, always add a clear TIME prefix
-        if (m.role === "user") {
-          // Format timestamp with explicit options to ensure consistent display
-          const timestamp = new Date(m.timestamp).toLocaleString(undefined, {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          });
-          
-          // Remove any existing timestamp format
-          const cleanedContent = m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]\s*/i, '');
-          
-          // Add the standardized TIME prefix
-          const content = `[TIME: ${timestamp}] ${cleanedContent}`;
-          console.log("Added standardized timestamp to message:", content);
-          
-          return {
-            role: m.role,
-            content: content
-          };
-        } else {
-          // For assistant messages, keep as is
-          return {
-            role: m.role,
-            content: m.content
-          };
+      if (isContextEdited && contextPreviewContent) {
+        // Parse the edited markdown context
+        try {
+          apiMessages = parseMarkdownContext(contextPreviewContent);
+          console.log("Using edited context:", apiMessages);
+        } catch (error) {
+          console.error("Failed to parse edited context:", error);
+          setCurrentResponse("Error: Invalid context format. Please check your markdown formatting.");
+          setIsLoading(false);
+          return;
         }
-      });
-      
-      // Combine system message with the conversation history
-      const apiMessages = [systemMessage, ...timestampedMessages];
+      } else {
+        // Create a more explicit system message about conversation history with time handling instructions
+        const systemMessage = {
+          role: "system",
+          content: `You are an AI assistant in a chat application. This is ${messages.length > 0 ?
+            "a continuing conversation." : "the beginning of a new conversation."}
+            
+            IMPORTANT INSTRUCTIONS FOR TIME-BASED QUERIES:
+            1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
+            2. When the user asks about previous messages from specific times or time ranges, you should:
+               - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
+               - Find relevant messages from those times by looking at the timestamps
+               - Summarize or quote those messages accurately
+               - Include the exact timestamps when referencing messages
+            3. Handle natural language time expressions like:
+               - "What did we discuss earlier?"
+               - "Show me what I said about X around 5pm"
+               - "What were we talking about 20 minutes ago?"
+               - "What did I ask yesterday?"
+            
+            IMPORTANT: DO NOT USE TIMESTAMPED DATA IF NOT ASKED! Only reference timestamps and time-based information when the user explicitly asks for historical context or references to previous messages.
+            
+            The current conversation has ${messages.length} previous messages.
+            The current time is ${new Date().toLocaleString(undefined, {
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true,
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            })}.
+            Always maintain context from previous messages in the conversation.`
+        };
+        
+        // Make sure we're sending ALL previous messages to maintain conversation history
+        // Get all messages including the new user message
+        const allMessages = [...messages, userMessage];
+        console.log("Sending conversation history with", allMessages.length, "messages");
+        
+        // Format messages for the API with explicit timestamps for all messages
+        const timestampedMessages = allMessages.map(m => {
+          // For user messages, always add a clear TIME prefix
+          if (m.role === "user") {
+            // Format timestamp with explicit options to ensure consistent display
+            const timestamp = new Date(m.timestamp).toLocaleString(undefined, {
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true,
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            });
+            
+            // Remove any existing timestamp format
+            const cleanedContent = m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]\s*/i, '');
+            
+            // Add the standardized TIME prefix
+            const content = `[TIME: ${timestamp}] ${cleanedContent}`;
+            console.log("Added standardized timestamp to message:", content);
+            
+            return {
+              role: m.role,
+              content: content
+            };
+          } else {
+            // For assistant messages, keep as is
+            return {
+              role: m.role,
+              content: m.content
+            };
+          }
+        });
+        
+        // Combine system message with the conversation history
+        apiMessages = [systemMessage, ...timestampedMessages];
+      }
       
       const response = await fetch(`${REDPILL_API_URL}/chat/completions`, {
         method: 'POST',
@@ -748,6 +929,11 @@ function App() {
       
       // Show the response in the UI
       setCurrentResponse(responseContent);
+
+      // Reset context preview state
+      setIsContextEdited(false);
+      setContextPreviewContent("");
+      setShowContextPreview(false);
 
       if (mode === "structured" && currentBranch) {
         await ConversationStore.updateBranch(currentBranch.id, finalMessages)
@@ -837,6 +1023,10 @@ function App() {
     setIsInResponseMode(false)
     setInput("")
     setShowMobileMenu(false)
+    // Reset context preview state
+    setContextPreviewContent("")
+    setIsContextEdited(false)
+    setShowContextPreview(false)
     if (textareaRef.current) {
       textareaRef.current.focus()
     }
@@ -952,6 +1142,9 @@ function App() {
           isDark={isDark}
           isOpen={showBranchPanel}
           onClose={() => setShowBranchPanel(false)}
+          setShowMobileMenu={setShowMobileMenu}
+          handleNewConversation={handleNewConversation}
+          setIsDark={setIsDark}
         />
       )}
 
@@ -971,6 +1164,7 @@ function App() {
                     setShowMobileMenu(true)
                   }
                 }}
+                aria-label="Menu"
                 className={`p-2 rounded-lg transition-colors duration-300 ${
                   isDark ? "hover:bg-white/10" : "hover:bg-black/10"
                 } lg:hidden`}
@@ -1090,13 +1284,9 @@ function App() {
                 value={selectedModel}
                 onChange={(e) => {
                   const newModel = e.target.value;
-                  setSelectedModel(newModel);
-                  
-                  // Model change is always applied for current session
-                  // but only saved if user has consented
-                  if (hasConsented) {
-                    console.log("Saving model preference:", newModel);
-                  }
+                  // Instead of immediately changing the model, store it as pending and show confirmation
+                  setPendingModelSelection(newModel);
+                  setShowModelSwitchModal(true);
                 }}
                 className={`px-4 py-2.5 text-sm rounded-xl transition-all duration-500 ${
                   isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
@@ -1180,14 +1370,14 @@ function App() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Only visible on mobile */}
       {showMobileMenu && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             onClick={() => setShowMobileMenu(false)}
           />
-          <div className={`fixed top-0 left-0 right-0 z-50 p-4 ${
+          <div className={`fixed top-0 left-0 right-0 z-50 p-4 lg:hidden ${
             isDark ? "bg-[#1a1d23]/95" : "bg-[#f7f8f9]/95"
           } backdrop-blur-xl border-b ${isDark ? "border-[#2ecc71]/20" : "border-[#0088fb]/20"}`}>
             <div className="flex items-center justify-between mb-4">
@@ -1201,6 +1391,24 @@ function App() {
             </div>
             
             <div className="space-y-3">
+              {/* Branches Button - Only show in structured mode */}
+              {mode === "structured" && (
+                <button
+                  onClick={() => {
+                    setShowBranchPanel(true);
+                    setShowMobileMenu(false);
+                  }}
+                  className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
+                    isDark
+                      ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30"
+                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
+                  } backdrop-blur-sm border flex items-center justify-center gap-2`}
+                >
+                  <GitBranch className="w-4 h-4" />
+                  View Branches
+                </button>
+              )}
+              
               {/* Mode Switcher */}
               <div className={`flex rounded-xl p-1 ${
                 isDark ? "bg-[#333333]/60" : "bg-[#f0f8ff]/60"
@@ -1240,13 +1448,9 @@ function App() {
                 value={selectedModel}
                 onChange={(e) => {
                   const newModel = e.target.value;
-                  setSelectedModel(newModel);
-                  
-                  // Model change is always applied for current session
-                  // but only saved if user has consented
-                  if (hasConsented) {
-                    console.log("Saving model preference (mobile):", newModel);
-                  }
+                  // Instead of immediately changing the model, store it as pending and show confirmation
+                  setPendingModelSelection(newModel);
+                  setShowModelSwitchModal(true);
                 }}
                 className={`w-full px-4 py-3 text-base rounded-xl ${
                   isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
@@ -1264,13 +1468,14 @@ function App() {
               <button
                 onClick={() => {
                   verifyAttestation()
-                  setShowMobileMenu(false)
+                  // Keep menu open to show verification status
                 }}
                 className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
                   isDark
                     ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
                     : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
                 } backdrop-blur-sm border`}
+                disabled={isVerifying}
               >
                 {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
               </button>
@@ -1279,6 +1484,15 @@ function App() {
                   isDark ? "text-[#2ecc71]/70" : "text-[#54ad95]/70"
                 }`} title={attestation.signing_address}>
                   {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
+                </div>
+              )}
+              {isVerifying && (
+                <div className="flex justify-center mt-2">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </div>
                 </div>
               )}
 
@@ -1658,9 +1872,29 @@ function App() {
                   
                   {/* Input hints */}
                   <div className="flex items-center justify-between mt-3 text-xs lg:text-sm">
-                    <span className={`${isDark ? 'text-gray-300' : 'text-gray-400'}`}>
-                      ⏎ to send • ⇧⏎ for new line
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`${isDark ? 'text-gray-300' : 'text-gray-400'}`}>
+                        ⏎ to send • ⇧⏎ for new line
+                      </span>
+                      <button
+                        onClick={() => {
+                          // Generate context preview content if not already edited
+                          if (!isContextEdited) {
+                            const previewContent = generateContextPreview();
+                            setContextPreviewContent(previewContent);
+                          }
+                          setShowContextPreview(!showContextPreview);
+                        }}
+                        className={`px-2 py-1 text-xs rounded transition-all duration-300 flex items-center gap-1 ${
+                          isDark
+                            ? `${showContextPreview ? "bg-[#2ecc71]/30" : "bg-[#333333]/60"} hover:bg-[#444444]/80 text-[#f0f8ff]`
+                            : `${showContextPreview ? "bg-[#54ad95]/20" : "bg-[#f0f8ff]/60"} hover:bg-[#f0f8ff]/80 text-[#00171c]`
+                        } backdrop-blur-sm hover:scale-105 active:scale-95`}
+                      >
+                        <Eye className="w-3 h-3" />
+                        {showContextPreview ? "Hide Context" : "Show Context"}
+                      </button>
+                    </div>
                     {messages.length > 0 && (
                       <button
                         onClick={handleNewConversation}
@@ -1674,6 +1908,23 @@ function App() {
                       </button>
                     )}
                   </div>
+                  
+                  {/* Context Preview */}
+                  <ContextPreview
+                    isOpen={showContextPreview}
+                    content={contextPreviewContent}
+                    isDark={isDark}
+                    onContentChange={(content) => {
+                      setContextPreviewContent(content);
+                      setIsContextEdited(true);
+                    }}
+                    onClose={() => setShowContextPreview(false)}
+                    onReset={() => {
+                      const previewContent = generateContextPreview();
+                      setContextPreviewContent(previewContent);
+                      setIsContextEdited(false);
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -1782,6 +2033,58 @@ function App() {
           onDecline={() => setHasConsented(false)}
         />
       )}
+      
+      {/* Model Switch Confirmation Modal */}
+      <ModelSwitchConfirmModal
+        isOpen={showModelSwitchModal}
+        onClose={() => {
+          setShowModelSwitchModal(false);
+          // Reset the dropdown to the current selection
+          setPendingModelSelection(null);
+        }}
+        onKeepContext={() => {
+          if (pendingModelSelection) {
+            // Apply the model change but keep the conversation
+            setSelectedModel(pendingModelSelection);
+            
+            // Save preference if consented
+            if (hasConsented) {
+              console.log("Saving model preference:", pendingModelSelection);
+            }
+            
+            // Close the modal
+            setShowModelSwitchModal(false);
+            setPendingModelSelection(null);
+          }
+        }}
+        onResetContext={() => {
+          if (pendingModelSelection) {
+            // Apply the model change
+            setSelectedModel(pendingModelSelection);
+            
+            // Save preference if consented
+            if (hasConsented) {
+              console.log("Saving model preference:", pendingModelSelection);
+            }
+            
+            // Reset the conversation
+            handleNewConversation();
+            
+            // Reset context preview content
+            setContextPreviewContent("");
+            setIsContextEdited(false);
+            setShowContextPreview(false);
+            
+            // Close the modal
+            setShowModelSwitchModal(false);
+            setPendingModelSelection(null);
+          }
+        }}
+        isDark={isDark}
+        newModelName={pendingModelSelection ?
+          TEE_MODELS.find(model => model.id === pendingModelSelection)?.name || pendingModelSelection :
+          ""}
+      />
     </div>
   )
 }
