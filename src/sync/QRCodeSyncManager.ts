@@ -3,7 +3,7 @@ import { ConversationStore } from '../conversationStore';
 import type { Branch, Message } from '../conversationStore';
 // Import the entire library to ensure QRCode is defined
 import * as QRCodeSync from '@lo-fi/qr-data-sync';
-const { send, receive } = QRCodeSync;
+import { isQRCodeSyncAvailable } from '../utils/qrCodeSyncInit';
 
 /**
  * Interface for QR code sync events
@@ -44,7 +44,15 @@ export class QRCodeSyncManager extends EventEmitter {
    */
   isAvailable(): boolean {
     // Check if the browser supports the MediaDevices API for camera access
-    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    const hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    
+    // Check if QRCodeSync library is available and properly loaded using our utility function
+    const hasQRCodeSync = isQRCodeSyncAvailable();
+    
+    console.log('QRCodeSyncManager.isAvailable:', { hasCamera, hasQRCodeSync });
+    
+    // Both camera access and QRCodeSync library are required
+    return hasCamera && hasQRCodeSync;
   }
 
   /**
@@ -100,8 +108,25 @@ export class QRCodeSyncManager extends EventEmitter {
       
       console.log("QRCodeSyncManager: Starting QR code sending with element", element);
 
+      // Check if QRCodeSync is available
+      if (!this.isAvailable()) {
+        throw new Error('QRCodeSync library is not available. Please ensure it is properly loaded.');
+      }
+      
+      // Ensure QRCode is available before sending
+      if (typeof window.QRCode === 'undefined') {
+        console.warn('QRCodeSyncManager: QRCode not available, waiting for it to load...');
+        // Wait a bit for QRCode to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check again
+        if (typeof window.QRCode === 'undefined') {
+          throw new Error('QRCode library is not available. Please ensure it is properly loaded.');
+        }
+      }
+      
       // Start sending data via QR codes
-      const sendStarted = await QRCodeSync.send(
+      const sendStarted = await window.QRCodeSync.send(
         syncData,
         element,
         {
@@ -187,8 +212,25 @@ export class QRCodeSyncManager extends EventEmitter {
       
       console.log("QRCodeSyncManager: Starting QR code receiving with video element", element);
 
+      // Check if QRCodeSync is available
+      if (!this.isAvailable()) {
+        throw new Error('QRCodeSync library is not available. Please ensure it is properly loaded.');
+      }
+      
+      // Ensure QRCode is available before receiving
+      if (typeof window.QRCode === 'undefined') {
+        console.warn('QRCodeSyncManager: QRCode not available, waiting for it to load...');
+        // Wait a bit for QRCode to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check again
+        if (typeof window.QRCode === 'undefined') {
+          throw new Error('QRCode library is not available. Please ensure it is properly loaded.');
+        }
+      }
+      
       // Start receiving data via QR codes
-      const receiveResult = await QRCodeSync.receive(
+      const receiveResult = await window.QRCodeSync.receive(
         element,
         {
           signal: this.receiveCancelToken.signal,

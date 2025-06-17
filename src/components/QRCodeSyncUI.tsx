@@ -1,26 +1,50 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { QRCodeSyncManager } from '../sync/QRCodeSyncManager';
 import { ConversationStore } from '../conversationStore';
-import { Camera, QrCode, X, RefreshCw, Send, Smartphone } from 'lucide-react';
-// Explicitly import the QR code library
-import * as QRCodeSync from '@lo-fi/qr-data-sync';
+import { Camera, QrCode, X, RefreshCw, Send } from 'lucide-react';
+import { isQRCodeSyncAvailable } from '../utils/qrCodeSyncInit';
+// We'll use the global QRCodeSync object instead of importing it
+// This ensures we're using the one loaded from the CDN
 
 interface QRCodeSyncUIProps {
   isDark: boolean;
-  conversationStore: typeof ConversationStore;
+  qrCodeSyncManager: QRCodeSyncManager;
+  isSyncing: boolean;
+  isAvailable: boolean;
+  error: string | null;
 }
 
-export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversationStore }) => {
+export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({
+  isDark,
+  qrCodeSyncManager,
+  isSyncing: externalIsSyncing,
+  isAvailable: externalIsAvailable,
+  error: externalError
+}) => {
   // State
   const [syncMode, setSyncMode] = useState<'send' | 'receive' | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [internalIsSyncing, setInternalIsSyncing] = useState(false);
+  const [internalError, setInternalError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  
+  // Use external state if provided, otherwise use internal state
+  const effectiveIsSyncing = externalIsSyncing !== undefined ? externalIsSyncing : internalIsSyncing;
+  const effectiveError = externalError || internalError;
+  const [isQRCodeAvailable, setIsQRCodeAvailable] = useState<boolean>(externalIsAvailable !== undefined ? externalIsAvailable : true);
   
   // Refs
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const syncManagerRef = useRef<QRCodeSyncManager | null>(null);
+  const syncManagerRef = useRef<QRCodeSyncManager | null>(qrCodeSyncManager || null);
+  
+  // Check if QR code functionality is available
+  useEffect(() => {
+    // Check if QRCodeSync is available using our utility function
+    const hasQRCodeSync = isQRCodeSyncAvailable();
+    
+    console.log('QRCodeSyncUI: QRCodeSync availability check:', { hasQRCodeSync });
+    setIsQRCodeAvailable(hasQRCodeSync);
+  }, []);
   
   // Create DOM elements if they don't exist
   useEffect(() => {
@@ -72,60 +96,60 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
     };
   }, []);
   
-  // Initialize QR code sync manager
+  // Use the provided QR code sync manager
   useEffect(() => {
-    const syncManager = new QRCodeSyncManager(conversationStore);
+    if (!qrCodeSyncManager) return;
     
     // Set up event listeners
-    syncManager.on('send-started', () => {
-      setIsSyncing(true);
-      setError(null);
+    qrCodeSyncManager.on('send-started', () => {
+      setInternalIsSyncing(true);
+      setInternalError(null);
     });
     
-    syncManager.on('send-completed', () => {
-      setIsSyncing(false);
+    qrCodeSyncManager.on('send-completed', () => {
+      setInternalIsSyncing(false);
       setProgress(null);
     });
     
-    syncManager.on('send-error', (error) => {
-      setIsSyncing(false);
-      setError(error.message);
+    qrCodeSyncManager.on('send-error', (error) => {
+      setInternalIsSyncing(false);
+      setInternalError(error.message);
     });
     
-    syncManager.on('receive-started', () => {
-      setIsSyncing(true);
-      setError(null);
+    qrCodeSyncManager.on('receive-started', () => {
+      setInternalIsSyncing(true);
+      setInternalError(null);
     });
     
-    syncManager.on('receive-completed', (data) => {
-      setIsSyncing(false);
+    qrCodeSyncManager.on('receive-completed', (data) => {
+      setInternalIsSyncing(false);
       setProgress(null);
       
       // Process received data
-      syncManager.processSyncData(data)
+      qrCodeSyncManager.processSyncData(data)
         .then(() => {
-          setError(null);
+          setInternalError(null);
           setSyncMode(null);
         })
         .catch((error) => {
-          setError(`Error processing sync data: ${error.message}`);
+          setInternalError(`Error processing sync data: ${error.message}`);
         });
     });
     
-    syncManager.on('receive-error', (error) => {
-      setIsSyncing(false);
-      setError(error.message);
+    qrCodeSyncManager.on('receive-error', (error) => {
+      setInternalIsSyncing(false);
+      setInternalError(error.message);
     });
     
-    syncManager.on('frame-sent', (frameIndex, frameCount) => {
+    qrCodeSyncManager.on('frame-sent', (frameIndex, frameCount) => {
       setProgress({ current: frameIndex + 1, total: frameCount });
     });
     
-    syncManager.on('frame-received', (framesRead, frameCount) => {
+    qrCodeSyncManager.on('frame-received', (framesRead, frameCount) => {
       setProgress({ current: framesRead, total: frameCount });
     });
     
-    syncManagerRef.current = syncManager;
+    syncManagerRef.current = qrCodeSyncManager;
     
     // Clean up on unmount
     return () => {
@@ -138,83 +162,122 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
         }
       }
     };
-  }, [conversationStore]);
+  }, [qrCodeSyncManager]);
   
   // Start sending data
   const handleStartSending = async () => {
     console.log("Start sending button clicked");
     if (!syncManagerRef.current) {
-      setError("QR Code Sync Manager not initialized");
+      setInternalError("QR Code Sync Manager not initialized");
       return;
     }
     
-    setError(null);
+    setInternalError(null);
     setSyncMode('send');
     
     try {
       console.log("Starting QR code sending...");
       
-      // Create a new div for QR code rendering
-      const qrContainer = document.createElement('div');
-      qrContainer.id = 'qr-code-container-fixed';
-      qrContainer.style.width = '100%';
-      qrContainer.style.height = '100%';
-      qrContainer.style.backgroundColor = 'white';
-      qrContainer.style.display = 'flex';
-      qrContainer.style.justifyContent = 'center';
-      qrContainer.style.alignItems = 'center';
+      // Get or create the QR code container
+      let qrContainer = document.getElementById('qr-code-container-fixed');
       
-      // Clear any existing content in the ref
-      if (qrCodeRef.current) {
-        qrCodeRef.current.innerHTML = '';
-        qrCodeRef.current.appendChild(qrContainer);
-      } else {
-        // Fallback to body if ref not available
+      if (!qrContainer) {
+        // Create a new div for QR code rendering
+        qrContainer = document.createElement('div');
+        qrContainer.id = 'qr-code-container-fixed';
+        qrContainer.style.width = '300px';
+        qrContainer.style.height = '300px';
+        qrContainer.style.backgroundColor = 'white';
+        qrContainer.style.display = 'flex';
+        qrContainer.style.justifyContent = 'center';
+        qrContainer.style.alignItems = 'center';
+        qrContainer.style.margin = '0 auto';
+        qrContainer.style.position = 'relative';
+        
+        // Append to the document body
         document.body.appendChild(qrContainer);
+      } else {
+        // Clear any existing content
+        qrContainer.innerHTML = '';
+        qrContainer.style.display = 'flex';
       }
       
-      // Try direct QRCodeSync usage
-      try {
-        // Get all branches and prepare data
-        const branches = await conversationStore.getAllBranches();
-        const settings = {
-          temperature: localStorage.getItem('temperature'),
-          maxTokens: localStorage.getItem('maxTokens'),
-          isDark: localStorage.getItem('isDark'),
-          selectedModel: localStorage.getItem('selectedModel')
-        };
+      // Also update the ref
+      if (qrCodeRef.current) {
+        qrCodeRef.current.innerHTML = '';
+        // Create a clone of the container to display in the UI
+        const displayContainer = document.createElement('div');
+        displayContainer.style.width = '100%';
+        displayContainer.style.height = '100%';
+        displayContainer.style.backgroundColor = 'white';
+        displayContainer.style.display = 'flex';
+        displayContainer.style.justifyContent = 'center';
+        displayContainer.style.alignItems = 'center';
+        displayContainer.textContent = 'QR Code is being generated...';
+        qrCodeRef.current.appendChild(displayContainer);
+      }
+      
+      // Check if QRCodeSync is available
+      if (isQRCodeAvailable) {
+        try {
+          // Get all branches and prepare data
+          const branches = await qrCodeSyncManager.conversationStore.getAllBranches();
+          const settings = {
+            temperature: localStorage.getItem('temperature'),
+            maxTokens: localStorage.getItem('maxTokens'),
+            isDark: localStorage.getItem('isDark'),
+            selectedModel: localStorage.getItem('selectedModel')
+          };
 
-        const syncData = {
-          type: 'sync',
-          branches,
-          settings,
-          timestamp: Date.now()
-        };
-        
-        // Use QRCodeSync directly
-        await QRCodeSync.send(
-          syncData,
-          qrContainer,
-          {
-            onFrameRendered: (frameIndex, frameCount) => {
-              setProgress({ current: frameIndex + 1, total: frameCount });
-            },
-            maxFramesPerSecond: 5,
-            frameTextChunkSize: 40,
-            qrCodeSize: 300
+          const syncData = {
+            type: 'sync',
+            branches,
+            settings,
+            timestamp: Date.now()
+          };
+          
+          // Ensure QRCode is available before sending
+          if (typeof window.QRCode === 'undefined') {
+            console.warn('QRCodeSyncUI: QRCode not available, waiting for it to load...');
+            // Wait a bit for QRCode to load
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Check again
+            if (typeof window.QRCode === 'undefined') {
+              throw new Error('QRCode library is not available. Please ensure it is properly loaded.');
+            }
           }
-        );
-        
-        console.log("QR code sending started directly");
-      } catch (directError: any) {
-        console.error("Direct QR code sending failed:", directError);
-        // Fall back to manager
+          
+          // Use QRCodeSync from the global window object
+          await window.QRCodeSync.send(
+            syncData,
+            qrContainer,
+            {
+              onFrameRendered: (frameIndex, frameCount) => {
+                setProgress({ current: frameIndex + 1, total: frameCount });
+              },
+              maxFramesPerSecond: 5,
+              frameTextChunkSize: 40,
+              qrCodeSize: 300
+            }
+          );
+          
+          console.log("QR code sending started directly");
+        } catch (directError: any) {
+          console.error("Direct QR code sending failed:", directError);
+          // Fall back to manager
+          const result = await syncManagerRef.current.startSending(qrContainer);
+          console.log("QR code sending started via manager:", result);
+        }
+      } else {
+        // QRCodeSync not available, use manager directly
+        console.log("QRCodeSync not available, using manager directly");
         const result = await syncManagerRef.current.startSending(qrContainer);
         console.log("QR code sending started via manager:", result);
       }
     } catch (error: any) {
       console.error("Failed to start sending QR codes:", error);
-      setError(error.message || 'Failed to start sending QR codes');
+      setInternalError(error.message || 'Failed to start sending QR codes');
     }
   };
   
@@ -222,33 +285,56 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
   const handleStartReceiving = async () => {
     console.log("Start receiving button clicked");
     if (!syncManagerRef.current) {
-      setError("QR Code Sync Manager not initialized");
+      setInternalError("QR Code Sync Manager not initialized");
       return;
     }
     
-    setError(null);
+    setInternalError(null);
     setSyncMode('receive');
     
     try {
       console.log("Starting QR code receiving...");
       
-      // Create a new video element
-      const videoElement = document.createElement('video');
-      videoElement.id = 'qr-video-element-fixed';
-      videoElement.style.width = '100%';
-      videoElement.style.height = 'auto';
-      videoElement.style.display = 'block';
-      videoElement.playsInline = true;
-      videoElement.autoplay = true;
-      videoElement.muted = true;
+      // Get or create the video element
+      let videoElement = document.getElementById('qr-video-element-fixed') as HTMLVideoElement;
       
-      // Clear any existing content in the ref
+      if (!videoElement) {
+        // Create a new video element
+        videoElement = document.createElement('video');
+        videoElement.id = 'qr-video-element-fixed';
+        videoElement.style.width = '100%';
+        videoElement.style.height = 'auto';
+        videoElement.style.maxWidth = '300px';
+        videoElement.style.margin = '0 auto';
+        videoElement.style.display = 'block';
+        videoElement.playsInline = true;
+        videoElement.autoplay = true;
+        videoElement.muted = true;
+        
+        // Append to the document body
+        document.body.appendChild(videoElement);
+      } else {
+        // Reset the video element
+        if (videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream;
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+          }
+        }
+        videoElement.srcObject = null;
+        videoElement.style.display = 'block';
+      }
+      
+      // Also update the ref
       if (videoContainerRef.current) {
         videoContainerRef.current.innerHTML = '';
-        videoContainerRef.current.appendChild(videoElement);
-      } else {
-        // Fallback to body if ref not available
-        document.body.appendChild(videoElement);
+        // Create a message to display in the UI
+        const displayMessage = document.createElement('div');
+        displayMessage.style.width = '100%';
+        displayMessage.style.padding = '20px';
+        displayMessage.style.textAlign = 'center';
+        displayMessage.textContent = 'Camera is being initialized...';
+        videoContainerRef.current.appendChild(displayMessage);
       }
       
       try {
@@ -261,41 +347,60 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
         console.log("Camera started successfully");
       } catch (cameraError: any) {
         console.error("Camera access error:", cameraError);
-        setError(`Camera access error: ${cameraError.message}`);
+        setInternalError(`Camera access error: ${cameraError.message}`);
         return;
       }
       
-      // Try direct QRCodeSync usage
-      try {
-        const receiveResult = await QRCodeSync.receive(
-          videoElement,
-          {
-            onFrameReceived: (framesRead, frameCount) => {
-              setProgress({ current: framesRead, total: frameCount });
-            },
-            maxScansPerSecond: 8,
-            preferredCamera: 'environment',
-            highlightScanRegion: true
+      // Check if QRCodeSync is available
+      if (isQRCodeAvailable) {
+        try {
+          // Ensure QRCode is available before receiving
+          if (typeof window.QRCode === 'undefined') {
+            console.warn('QRCodeSyncUI: QRCode not available, waiting for it to load...');
+            // Wait a bit for QRCode to load
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Check again
+            if (typeof window.QRCode === 'undefined') {
+              throw new Error('QRCode library is not available. Please ensure it is properly loaded.');
+            }
           }
-        );
-        
-        console.log("QR code receiving completed directly:", receiveResult);
-        
-        if (receiveResult && receiveResult.data) {
-          // Process received data
-          await syncManagerRef.current.processSyncData(receiveResult.data);
-          setError(null);
-          setSyncMode(null);
+          
+          const receiveResult = await window.QRCodeSync.receive(
+            videoElement,
+            {
+              onFrameReceived: (framesRead, frameCount) => {
+                setProgress({ current: framesRead, total: frameCount });
+              },
+              maxScansPerSecond: 8,
+              preferredCamera: 'environment',
+              highlightScanRegion: true
+            }
+          );
+          
+          console.log("QR code receiving completed directly:", receiveResult);
+          
+          if (receiveResult && receiveResult.data) {
+            // Process received data
+            await syncManagerRef.current.processSyncData(receiveResult.data);
+            setInternalError(null);
+            setSyncMode(null);
+          }
+        } catch (directError: any) {
+          console.error("Direct QR code receiving failed:", directError);
+          // Fall back to manager
+          const result = await syncManagerRef.current.startReceiving(videoElement);
+          console.log("QR code receiving started via manager:", result);
         }
-      } catch (directError: any) {
-        console.error("Direct QR code receiving failed:", directError);
-        // Fall back to manager
+      } else {
+        // QRCodeSync not available, use manager directly
+        console.log("QRCodeSync not available, using manager directly");
         const result = await syncManagerRef.current.startReceiving(videoElement);
         console.log("QR code receiving started via manager:", result);
       }
     } catch (error: any) {
       console.error("Failed to start receiving QR codes:", error);
-      setError(error.message || 'Failed to start receiving QR codes');
+      setInternalError(error.message || 'Failed to start receiving QR codes');
     }
   };
   
@@ -340,11 +445,20 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
       </h2>
       
       {/* Error Message */}
-      {error && (
+      {effectiveError && (
         <div className={`p-3 mb-4 rounded-lg text-sm ${
           isDark ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-700'
         }`}>
-          {error}
+          {effectiveError}
+        </div>
+      )}
+      
+      {/* QR Code Availability Warning */}
+      {!isQRCodeAvailable && !syncMode && (
+        <div className={`p-3 mb-4 rounded-lg text-sm ${
+          isDark ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-700'
+        }`}>
+          <p>QR Code library not fully loaded. Using simplified mode.</p>
         </div>
       )}
       
@@ -392,8 +506,11 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
             } flex items-center justify-center overflow-hidden`}
           >
             {/* This will be replaced with the actual QR code when sending */}
-            {!isSyncing && (
-              <QrCode className="w-16 h-16 text-gray-300" />
+            {!effectiveIsSyncing && (
+              <div className="flex flex-col items-center justify-center">
+                <QrCode className="w-16 h-16 text-gray-300" />
+                <p className="text-xs text-gray-500 mt-2">QR Code Sync</p>
+              </div>
             )}
           </div>
           
@@ -441,7 +558,7 @@ export const QRCodeSyncUI: React.FC<QRCodeSyncUIProps> = ({ isDark, conversation
               className="relative w-full max-w-xs mx-auto rounded-lg overflow-hidden"
             >
               {/* This will be replaced with the actual video when receiving */}
-              {!isSyncing && (
+              {!iveIsSyncing && (
                 <div className="aspect-video bg-gray-900 flex items-center justify-center">
                   <Camera className="w-16 h-16 text-gray-700" />
                 </div>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QRCodeSync Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .test-section {
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .qr-container {
+      width: 300px;
+      height: 300px;
+      background-color: white;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .status {
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0069d9;
+    }
+    pre {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>QRCodeSync Library Test</h1>
+  
+  <div class="container">
+    <div class="test-section">
+      <h2>Library Detection</h2>
+      <div id="library-status" class="status">Checking...</div>
+      <pre id="library-details"></pre>
+    </div>
+
+    <div class="test-section">
+      <h2>QR Code Generation Test</h2>
+      <p>This tests if the QRCodeSync library can generate a QR code.</p>
+      <div id="qr-container" class="qr-container">
+        <p>QR code will appear here</p>
+      </div>
+      <button id="generate-btn">Generate QR Code</button>
+      <div id="generate-status" class="status">Not tested yet</div>
+    </div>
+  </div>
+
+  <!-- Load the QRCodeSync library from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@lo-fi/qr-data-sync@0.999.2/dist/qr-data-sync.min.js"></script>
+  
+  <!-- Load our polyfill -->
+  <script src="/qrcode-polyfill.js"></script>
+  
+  <script>
+    // Function to check if QRCodeSync is properly loaded
+    function checkLibraryStatus() {
+      const statusElement = document.getElementById('library-status');
+      const detailsElement = document.getElementById('library-details');
+      
+      try {
+        // Check if QRCodeSync is defined
+        if (typeof window.QRCodeSync !== 'undefined') {
+          // Check if the required methods are available
+          const hasSend = typeof window.QRCodeSync.send === 'function';
+          const hasReceive = typeof window.QRCodeSync.receive === 'function';
+          
+          if (hasSend && hasReceive) {
+            statusElement.textContent = 'QRCodeSync library is properly loaded!';
+            statusElement.className = 'status success';
+            
+            // Show library details
+            const details = {
+              'Library Loaded': true,
+              'send method': hasSend ? 'Available' : 'Missing',
+              'receive method': hasReceive ? 'Available' : 'Missing'
+            };
+            
+            detailsElement.textContent = JSON.stringify(details, null, 2);
+          } else {
+            statusElement.textContent = 'QRCodeSync library is partially loaded. Some methods are missing.';
+            statusElement.className = 'status error';
+            
+            // Show library details
+            const details = {
+              'Library Loaded': 'Partially',
+              'send method': hasSend ? 'Available' : 'Missing',
+              'receive method': hasReceive ? 'Available' : 'Missing'
+            };
+            
+            detailsElement.textContent = JSON.stringify(details, null, 2);
+          }
+        } else {
+          statusElement.textContent = 'QRCodeSync library is NOT loaded!';
+          statusElement.className = 'status error';
+          
+          detailsElement.textContent = JSON.stringify({
+            'Library Loaded': false,
+            'Error': 'window.QRCodeSync is undefined'
+          }, null, 2);
+        }
+      } catch (error) {
+        statusElement.textContent = 'Error checking QRCodeSync library: ' + error.message;
+        statusElement.className = 'status error';
+        
+        detailsElement.textContent = JSON.stringify({
+          'Library Loaded': false,
+          'Error': error.message
+        }, null, 2);
+      }
+    }
+    
+    // Function to test QR code generation
+    async function testQRCodeGeneration() {
+      const container = document.getElementById('qr-container');
+      const statusElement = document.getElementById('generate-status');
+      
+      // Clear the container
+      container.innerHTML = '';
+      
+      try {
+        // Create a test data object
+        const testData = {
+          message: 'Hello from QRCodeSync!',
+          timestamp: new Date().toISOString()
+        };
+        
+        // Try to generate a QR code
+        await window.QRCodeSync.send(
+          testData,
+          container,
+          {
+            maxFramesPerSecond: 5,
+            frameTextChunkSize: 40,
+            qrCodeSize: 250
+          }
+        );
+        
+        statusElement.textContent = 'QR code generated successfully!';
+        statusElement.className = 'status success';
+      } catch (error) {
+        statusElement.textContent = 'Error generating QR code: ' + error.message;
+        statusElement.className = 'status error';
+        
+        // Add a fallback message to the container
+        container.innerHTML = '<p>Failed to generate QR code</p>';
+      }
+    }
+    
+    // Run the library check when the page loads
+    window.addEventListener('DOMContentLoaded', () => {
+      checkLibraryStatus();
+      
+      // Add event listener to the generate button
+      document.getElementById('generate-btn').addEventListener('click', testQRCodeGeneration);
+    });
+  </script>
+</body>
+</html>

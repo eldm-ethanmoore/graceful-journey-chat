@@ -30,7 +30,14 @@ export class QRCodeService extends EventEmitter {
    * @returns True if QR code functionality is available
    */
   isAvailable(): boolean {
-    return true; // SimpleQRCode is always available
+    // Check if the QRCodeSync library is available
+    const hasQRCodeSync = typeof window !== 'undefined' &&
+                         typeof window.QRCodeSync !== 'undefined';
+    
+    console.log('QRCodeService.isAvailable:', { hasQRCodeSync });
+    
+    // Only return true if QRCodeSync is actually available
+    return hasQRCodeSync;
   }
 
   /**
@@ -59,11 +66,29 @@ export class QRCodeService extends EventEmitter {
       // Store the element for later reference
       this.element = targetElement;
 
-      // Create a new SimpleQRCode
-      this.qrCode = new SimpleQRCode(targetElement);
+      // Check if QRCodeSync is available
+      if (!this.isAvailable()) {
+        throw new Error('QRCodeSync library is not available. Please ensure it is properly loaded.');
+      }
       
-      // Generate the QR code
-      this.qrCode.makeCode(text);
+      // Use the QRCodeSync library directly
+      if (typeof window.QRCodeSync !== 'undefined' && typeof window.QRCodeSync.send === 'function') {
+        // Clear any existing content
+        targetElement.innerHTML = '';
+        
+        // Create a simple QR code using the send function with a single frame
+        window.QRCodeSync.send(
+          { text },
+          targetElement,
+          {
+            maxFramesPerSecond: 1,
+            qrCodeSize: 200,
+            signal: new AbortController().signal
+          }
+        ).catch(err => console.error('Error creating QR code:', err));
+      } else {
+        throw new Error('QRCodeSync library is not properly initialized.');
+      }
 
       // Emit the created event
       this.emit('qr-created', text);

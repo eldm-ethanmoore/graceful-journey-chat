@@ -1,173 +1,256 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { SimpleQRCodeSync } from '../utils/SimpleQRCodeSync';
 import { ConversationStore } from '../conversationStore';
-import { Camera, Send, X } from 'lucide-react';
-import { qrCodeService } from '../sync/QRCodeService';
-import { QRCodeScanner } from './QRCodeScanner';
-import { QRCodeDisplay } from './QRCodeDisplay';
+import { Camera, QrCode, X, Send } from 'lucide-react';
 
 interface SimpleQRCodeSyncUIProps {
   isDark: boolean;
   conversationStore: typeof ConversationStore;
 }
 
-export const SimpleQRCodeSyncUI: React.FC<SimpleQRCodeSyncUIProps> = ({ 
-  isDark, 
-  conversationStore 
-}) => {
+export const SimpleQRCodeSyncUI: React.FC<SimpleQRCodeSyncUIProps> = ({ isDark, conversationStore }) => {
   // State
   const [syncMode, setSyncMode] = useState<'send' | 'receive' | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [syncData, setSyncData] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-
-  // Reset state when component unmounts
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  
+  // Refs
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const syncManagerRef = useRef<SimpleQRCodeSync | null>(null);
+  
+  // Initialize QR code sync manager
   useEffect(() => {
-    return () => {
-      setSyncMode(null);
+    const syncManager = new SimpleQRCodeSync(conversationStore);
+    
+    // Set up event listeners
+    syncManager.on('send-started', () => {
+      setIsSyncing(true);
       setError(null);
-      setSyncData(null);
-      setIsProcessing(false);
-      setIsSuccess(false);
+    });
+    
+    syncManager.on('send-completed', () => {
+      setIsSyncing(false);
+      setProgress(null);
+    });
+    
+    syncManager.on('send-error', (error) => {
+      setIsSyncing(false);
+      setError(error.message);
+    });
+    
+    syncManager.on('receive-started', () => {
+      setIsSyncing(true);
+      setError(null);
+    });
+    
+    syncManager.on('receive-completed', (data) => {
+      setIsSyncing(false);
+      setProgress(null);
+      
+      // Process received data
+      syncManager.processSyncData(data)
+        .then(() => {
+          setError(null);
+          setSyncMode(null);
+        })
+        .catch((error) => {
+          setError(`Error processing sync data: ${error.message}`);
+        });
+    });
+    
+    syncManager.on('receive-error', (error) => {
+      setIsSyncing(false);
+      setError(error.message);
+    });
+    
+    syncManager.on('frame-sent', (frameIndex, frameCount) => {
+      setProgress({ current: frameIndex + 1, total: frameCount });
+    });
+    
+    syncManager.on('frame-received', (framesRead, frameCount) => {
+      setProgress({ current: framesRead, total: frameCount });
+    });
+    
+    syncManagerRef.current = syncManager;
+    
+    // Clean up on unmount
+    return () => {
+      if (syncManagerRef.current) {
+        if (syncManagerRef.current.isSendingInProgress()) {
+          syncManagerRef.current.stopSending();
+        }
+        if (syncManagerRef.current.isReceivingInProgress()) {
+          syncManagerRef.current.stopReceiving();
+        }
+      }
     };
-  }, []);
-
-  // Handle send button click
-  const handleSend = async () => {
+  }, [conversationStore]);
+  
+  // Start sending data
+  const handleStartSending = async () => {
+    console.log("SimpleQRCodeSyncUI: Start sending button clicked");
+    if (!syncManagerRef.current) {
+      setError("QR Code Sync Manager not initialized");
+      return;
+    }
+    
     setError(null);
-    setIsProcessing(true);
+    setSyncMode('send');
     
     try {
-      // Get all branches and prepare data
-      const branches = await conversationStore.getAllBranches();
+      console.log("SimpleQRCodeSyncUI: Starting QR code sending...");
       
-      // Get settings from localStorage
-      const settings = {
-        temperature: localStorage.getItem('temperature'),
-        maxTokens: localStorage.getItem('maxTokens'),
-        isDark: localStorage.getItem('isDark'),
-        selectedModel: localStorage.getItem('selectedModel')
-      };
+      // Create a container for QR code rendering
+      const qrContainer = document.getElementById('qr-code-container-fixed');
       
-      // Create sync data
-      const data = {
-        type: 'sync',
-        branches,
-        settings,
-        timestamp: Date.now()
-      };
+      if (qrContainer) {
+        // Clear existing content
+        qrContainer.innerHTML = '';
+        qrContainer.style.display = 'flex';
+      } else {
+        // Create a new container if it doesn't exist
+        const newContainer = document.createElement('div');
+        newContainer.id = 'qr-code-container-fixed';
+        newContainer.style.width = '300px';
+        newContainer.style.height = '300px';
+        newContainer.style.backgroundColor = 'white';
+        newContainer.style.display = 'flex';
+        newContainer.style.justifyContent = 'center';
+        newContainer.style.alignItems = 'center';
+        newContainer.style.margin = '0 auto';
+        newContainer.style.position = 'relative';
+        document.body.appendChild(newContainer);
+      }
       
-      // Convert to JSON string
-      const jsonData = JSON.stringify(data);
+      // Create a canvas for QR code rendering
+      const qrCanvas = document.createElement('canvas');
+      qrCanvas.width = 300;
+      qrCanvas.height = 300;
       
-      // Set sync data for QR code display
-      setSyncData(jsonData);
+      // Clear any existing content in the ref
+      if (qrCodeRef.current) {
+        qrCodeRef.current.innerHTML = '';
+        qrCodeRef.current.appendChild(qrCanvas.cloneNode(true));
+      }
       
-      // Set sync mode to send
-      setSyncMode('send');
-      setIsProcessing(false);
+      // Get the container again to ensure it exists
+      const targetContainer = document.getElementById('qr-code-container-fixed');
+      if (targetContainer) {
+        targetContainer.appendChild(qrCanvas);
+        
+        // Start sending
+        await syncManagerRef.current.startSending(targetContainer);
+        console.log("SimpleQRCodeSyncUI: QR code sending started");
+      } else {
+        throw new Error("QR code container not found");
+      }
     } catch (error: any) {
-      console.error('Error preparing sync data:', error);
-      setError(error.message || 'Failed to prepare sync data');
-      setIsProcessing(false);
+      console.error("SimpleQRCodeSyncUI: Failed to start sending QR codes:", error);
+      setError(error.message || 'Failed to start sending QR codes');
     }
   };
-
-  // Handle receive button click
-  const handleReceive = () => {
+  
+  // Start receiving data
+  const handleStartReceiving = async () => {
+    console.log("SimpleQRCodeSyncUI: Start receiving button clicked");
+    if (!syncManagerRef.current) {
+      setError("QR Code Sync Manager not initialized");
+      return;
+    }
+    
     setError(null);
     setSyncMode('receive');
-  };
-
-  // Handle QR code scan
-  const handleScan = async (data: string) => {
-    setIsProcessing(true);
     
     try {
-      // Parse the scanned data
-      const parsedData = JSON.parse(data);
+      console.log("SimpleQRCodeSyncUI: Starting QR code receiving...");
       
-      // Check if the data is valid
-      if (parsedData && parsedData.type === 'sync') {
-        // Process the sync data
-        await processSyncData(parsedData);
-        
-        // Show success message
-        setIsSuccess(true);
-        
-        // Reset after 3 seconds
-        setTimeout(() => {
-          setSyncMode(null);
-          setIsSuccess(false);
-        }, 3000);
-      } else {
-        throw new Error('Invalid QR code data');
-      }
-    } catch (error: any) {
-      console.error('Error processing QR code data:', error);
-      setError(error.message || 'Failed to process QR code data');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Process sync data
-  const processSyncData = async (syncData: any): Promise<void> => {
-    if (syncData && syncData.type === 'sync' && syncData.branches) {
-      try {
-        // Import branches
-        if (syncData.branches && syncData.branches.length > 0) {
-          for (const branch of syncData.branches) {
-            // Check if branch already exists
-            const existingBranch = await conversationStore.getBranch(branch.id);
-            if (!existingBranch) {
-              // Create new branch
-              await conversationStore.createBranch(
-                branch.name,
-                branch.messages,
-                branch.parentId
-              );
-            } else {
-              // Update existing branch
-              await conversationStore.updateBranch(
-                branch.id,
-                branch.messages
-              );
-            }
+      // Get or create the video element
+      let videoElement = document.getElementById('qr-video-element-fixed') as HTMLVideoElement;
+      
+      if (videoElement) {
+        // Reset the video element
+        if (videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream;
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
           }
         }
-
-        // Import settings if available
-        if (syncData.settings) {
-          if (syncData.settings.temperature) localStorage.setItem('temperature', syncData.settings.temperature);
-          if (syncData.settings.maxTokens) localStorage.setItem('maxTokens', syncData.settings.maxTokens);
-          if (syncData.settings.isDark) localStorage.setItem('isDark', syncData.settings.isDark);
-          if (syncData.settings.selectedModel) localStorage.setItem('selectedModel', syncData.settings.selectedModel);
-        }
-
-        console.log('Sync data processed successfully');
-      } catch (error) {
-        console.error('Error processing sync data:', error);
-        throw error;
+        videoElement.srcObject = null;
+        videoElement.style.display = 'block';
+      } else {
+        // Create a new video element
+        videoElement = document.createElement('video');
+        videoElement.id = 'qr-video-element-fixed';
+        videoElement.width = 300;
+        videoElement.height = 300;
+        videoElement.style.display = 'block';
+        videoElement.style.maxWidth = '300px';
+        videoElement.style.margin = '0 auto';
+        videoElement.playsInline = true;
+        videoElement.autoplay = true;
+        videoElement.muted = true;
+        document.body.appendChild(videoElement);
       }
-    } else {
-      throw new Error('Invalid sync data format');
+      
+      // Clear any existing content in the ref
+      if (videoContainerRef.current) {
+        videoContainerRef.current.innerHTML = '';
+        // Create a clone for display in the UI
+        const displayVideo = document.createElement('div');
+        displayVideo.style.width = '100%';
+        displayVideo.style.height = '200px';
+        displayVideo.style.backgroundColor = '#333';
+        displayVideo.style.display = 'flex';
+        displayVideo.style.justifyContent = 'center';
+        displayVideo.style.alignItems = 'center';
+        displayVideo.textContent = 'Camera is initializing...';
+        videoContainerRef.current.appendChild(displayVideo);
+      }
+      
+      try {
+        // Request camera permissions
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        videoElement.srcObject = stream;
+        await videoElement.play();
+        console.log("SimpleQRCodeSyncUI: Camera started successfully");
+        
+        // Start receiving
+        await syncManagerRef.current.startReceiving(videoElement);
+        console.log("SimpleQRCodeSyncUI: QR code receiving started");
+      } catch (cameraError: any) {
+        console.error("SimpleQRCodeSyncUI: Camera access error:", cameraError);
+        setError(`Camera access error: ${cameraError.message}`);
+      }
+    } catch (error: any) {
+      console.error("SimpleQRCodeSyncUI: Failed to start receiving QR codes:", error);
+      setError(error.message || 'Failed to start receiving QR codes');
     }
   };
-
-  // Handle close
-  const handleClose = () => {
+  
+  // Cancel sync
+  const handleCancel = () => {
+    if (!syncManagerRef.current) return;
+    
+    if (syncMode === 'send' && syncManagerRef.current.isSendingInProgress()) {
+      syncManagerRef.current.stopSending();
+    } else if (syncMode === 'receive' && syncManagerRef.current.isReceivingInProgress()) {
+      syncManagerRef.current.stopReceiving();
+    }
+    
     setSyncMode(null);
-    setError(null);
-    setSyncData(null);
+    setProgress(null);
   };
-
+  
   return (
     <div className={`p-4 rounded-xl transition-all duration-500 ${
       isDark ? 'bg-[#333333]/60 border-[#2ecc71]/30' : 'bg-[#f0f8ff]/60 border-[#54ad95]/30'
     } backdrop-blur-xl border`}>
       <h2 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        QR Code Synchronization
+        Simple QR Code Sync
       </h2>
       
       {/* Error Message */}
@@ -179,20 +262,11 @@ export const SimpleQRCodeSyncUI: React.FC<SimpleQRCodeSyncUIProps> = ({
         </div>
       )}
       
-      {/* Success Message */}
-      {isSuccess && (
-        <div className={`p-3 mb-4 rounded-lg text-sm ${
-          isDark ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'
-        }`}>
-          Sync completed successfully!
-        </div>
-      )}
-      
       {/* Sync Mode Selection */}
-      {!syncMode && !isProcessing && !isSuccess && (
+      {!syncMode && (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={handleSend}
+            onClick={handleStartSending}
             className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
               isDark
                 ? 'bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30'
@@ -204,7 +278,7 @@ export const SimpleQRCodeSyncUI: React.FC<SimpleQRCodeSyncUIProps> = ({
           </button>
           
           <button
-            onClick={handleReceive}
+            onClick={handleStartReceiving}
             className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
               isDark
                 ? 'bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30'
@@ -217,39 +291,112 @@ export const SimpleQRCodeSyncUI: React.FC<SimpleQRCodeSyncUIProps> = ({
         </div>
       )}
       
-      {/* Processing Indicator */}
-      {isProcessing && (
-        <div className="flex flex-col items-center justify-center py-6">
-          <div className="w-12 h-12 border-4 border-t-4 border-gray-200 rounded-full animate-spin mb-4"
-            style={{ borderTopColor: isDark ? '#2ecc71' : '#54ad95' }}
-          ></div>
-          <p className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-            Processing...
+      {/* Send Mode */}
+      {syncMode === 'send' && (
+        <div className="mb-4">
+          <p className={`text-sm mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            Show this QR code to the receiving device:
           </p>
+          
+          {/* QR Code Display */}
+          <div
+            ref={qrCodeRef}
+            className={`w-full aspect-square max-w-xs mx-auto mb-4 rounded-lg ${
+              isDark ? 'bg-white' : 'bg-white'
+            } flex items-center justify-center overflow-hidden`}
+          >
+            {/* This will be replaced with the actual QR code when sending */}
+            {!isSyncing && (
+              <div className="flex flex-col items-center justify-center">
+                <QrCode className="w-16 h-16 text-gray-300" />
+                <p className="text-xs text-gray-500 mt-2">QR Code Sync</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Progress */}
+          {progress && (
+            <div className="mb-4 text-center">
+              <p className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Sending frame {progress.current} of {progress.total}
+              </p>
+              <div className="w-full h-2 bg-gray-200 rounded-full mt-2">
+                <div 
+                  className={`h-2 rounded-full ${isDark ? 'bg-[#2ecc71]' : 'bg-[#54ad95]'}`}
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+          
+          {/* Cancel Button */}
+          <button
+            onClick={handleCancel}
+            className={`w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+              isDark
+                ? 'bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30'
+                : 'bg-red-100 hover:bg-red-200 text-red-700 border-red-200'
+            } backdrop-blur-sm border flex items-center justify-center gap-2`}
+          >
+            <X className="w-4 h-4" />
+            Cancel
+          </button>
         </div>
       )}
       
-      {/* QR Code Display */}
-      {syncMode === 'send' && syncData && (
-        <QRCodeDisplay 
-          data={syncData}
-          onClose={handleClose}
-          isDark={isDark}
-          title="Scan this QR code to receive data"
-        />
-      )}
-      
-      {/* QR Code Scanner */}
+      {/* Receive Mode */}
       {syncMode === 'receive' && (
-        <QRCodeScanner
-          onScan={handleScan}
-          onClose={handleClose}
-          isDark={isDark}
-        />
+        <div className="mb-4">
+          <p className={`text-sm mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            Point your camera at the QR code on the sending device:
+          </p>
+          
+          {/* Camera Feed */}
+          <div className="relative mb-4">
+            <div
+              ref={videoContainerRef}
+              className="relative w-full max-w-xs mx-auto rounded-lg overflow-hidden"
+            >
+              {/* This will be replaced with the actual video when receiving */}
+              {!isSyncing && (
+                <div className="aspect-video bg-gray-900 flex items-center justify-center">
+                  <Camera className="w-16 h-16 text-gray-700" />
+                </div>
+              )}
+            </div>
+            
+            {/* Cancel Button */}
+            <button
+              onClick={handleCancel}
+              className={`absolute top-2 right-2 p-2 rounded-full ${
+                isDark
+                  ? 'bg-[#333333]/80 text-white hover:bg-[#444444]'
+                  : 'bg-white/80 text-gray-900 hover:bg-gray-200'
+              }`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          {/* Progress */}
+          {progress && (
+            <div className="mb-4 text-center">
+              <p className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Received {progress.current} of {progress.total} frames
+              </p>
+              <div className="w-full h-2 bg-gray-200 rounded-full mt-2">
+                <div 
+                  className={`h-2 rounded-full ${isDark ? 'bg-[#03a9f4]' : 'bg-[#0088fb]'}`}
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
       
       {/* Instructions */}
-      {!syncMode && !isProcessing && !isSuccess && (
+      {!syncMode && (
         <div className={`mt-4 p-3 rounded-lg text-xs ${
           isDark ? 'bg-[#333333]/80 text-gray-300' : 'bg-[#f0f8ff]/80 text-gray-700'
         }`}>

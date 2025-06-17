@@ -18,4 +18,21 @@ interface Window {
     enable?: () => Promise<string[]>; // Deprecated but sometimes needed
     isConnected?: () => boolean;
   };
+  
+  // Add global QRCodeSync for compatibility with the polyfill
+  QRCodeSync?: {
+    send: (
+      data: any,
+      element: HTMLElement | string,
+      options?: any
+    ) => Promise<boolean>;
+    receive: (
+      element: HTMLVideoElement | string,
+      options?: any
+    ) => Promise<any>;
+    makeCode: (
+      text: string,
+      element: HTMLElement | string
+    ) => void;
+  };
 }

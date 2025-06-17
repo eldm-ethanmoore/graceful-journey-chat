@@ -3,15 +3,15 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye, QrCode } from "lucide-react"
+import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye } from "lucide-react"
 import { RainbowAuthUI } from "./components/RainbowAuthUI"
 import { LiquidGlassWrapper } from "./components/LiquidGlassWrapper"
 import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
 import type { AppSettings } from "./utils/secureStorage"
 import { ContextPreview } from "./ContextPreview"
 import { ModelSwitchConfirmModal } from "./ModelSwitchConfirmModal"
-import { QRCodeSyncManager } from './sync/QRCodeSyncManager';
-import { SimpleQRCodeSyncUI } from './components/SimpleQRCodeSyncUI';
+import { PipingSyncManager } from './sync/PipingSyncManager';
+import { PipingSyncUI } from './components/PipingSyncUI';
 
 interface Message extends StoredMessage {
   id: string
@@ -473,9 +473,9 @@ function App() {
   // Always show these features - no toggles
   const showAuthUI = true
   const [temperature, setTemperature] = useState(DEFAULT_SETTINGS.temperature)
-  const [qrCodeSyncManager] = useState(() => new QRCodeSyncManager(ConversationStore));
+  const [pipingSyncManager] = useState(() => new PipingSyncManager(ConversationStore));
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isQRCodeSyncAvailable, setIsQRCodeSyncAvailable] = useState(true);
+  const [isPipingSyncAvailable, setIsPipingSyncAvailable] = useState(true);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [maxTokens, setMaxTokens] = useState(DEFAULT_SETTINGS.maxTokens)
   const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
@@ -561,10 +561,10 @@ function App() {
     }
   }, [input, isInResponseMode])
   
-  // QR Code Sync event listeners
+  // Piping Sync event listeners
   useEffect(() => {
-    // Check if QR Code Sync is available
-    setIsQRCodeSyncAvailable(qrCodeSyncManager.isAvailable());
+    // Check if Piping Sync is available
+    setIsPipingSyncAvailable(pipingSyncManager.isAvailable());
     
     const handleSendStarted = () => setIsSyncing(true);
     const handleSendCompleted = () => {
@@ -585,22 +585,22 @@ function App() {
       setIsSyncing(false);
     };
 
-    qrCodeSyncManager.on('send-started', handleSendStarted);
-    qrCodeSyncManager.on('send-completed', handleSendCompleted);
-    qrCodeSyncManager.on('receive-started', handleReceiveStarted);
-    qrCodeSyncManager.on('receive-completed', handleReceiveCompleted);
-    qrCodeSyncManager.on('send-error', handleSendError);
-    qrCodeSyncManager.on('receive-error', handleReceiveError);
+    pipingSyncManager.on('send-started', handleSendStarted);
+    pipingSyncManager.on('send-completed', handleSendCompleted);
+    pipingSyncManager.on('receive-started', handleReceiveStarted);
+    pipingSyncManager.on('receive-completed', handleReceiveCompleted);
+    pipingSyncManager.on('send-error', handleSendError);
+    pipingSyncManager.on('receive-error', handleReceiveError);
 
     return () => {
-      qrCodeSyncManager.off('send-started', handleSendStarted);
-      qrCodeSyncManager.off('send-completed', handleSendCompleted);
-      qrCodeSyncManager.off('receive-started', handleReceiveStarted);
-      qrCodeSyncManager.off('receive-completed', handleReceiveCompleted);
-      qrCodeSyncManager.off('send-error', handleSendError);
-      qrCodeSyncManager.off('receive-error', handleReceiveError);
+      pipingSyncManager.off('send-started', handleSendStarted);
+      pipingSyncManager.off('send-completed', handleSendCompleted);
+      pipingSyncManager.off('receive-started', handleReceiveStarted);
+      pipingSyncManager.off('receive-completed', handleReceiveCompleted);
+      pipingSyncManager.off('send-error', handleSendError);
+      pipingSyncManager.off('receive-error', handleReceiveError);
     };
-  }, [qrCodeSyncManager]);
+  }, [pipingSyncManager]);
 
   const loadOrCreateDefaultBranch = async () => {
     const branches = await ConversationStore.getAllBranches()
@@ -1111,8 +1111,8 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
     handleNewConversation()
   }
 
-  // No need for explicit connect/disconnect functions with QR code sync
-  // The QRCodeSyncUI component handles these operations internally
+  // No need for explicit connect/disconnect functions with piping sync
+  // The PipingSyncUI component handles these operations internally
 
   // Handle keyboard events in the textarea
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1289,7 +1289,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                       ? "bg-[#03a9f4]/20 hover:bg-[#03a9f4]/30 text-[#03a9f4]"
                       : "bg-[#0088fb]/10 hover:bg-[#0088fb]/20 text-[#0088fb]"
                   } flex items-center gap-1`}
-                  title="Settings & QR Code Sync"
+                  title="Settings & Piping Sync"
                 >
                   <SettingsIcon className="w-4 h-4" />
                 </button>
@@ -1490,7 +1490,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               {/* Settings Button for Mobile */}
               <div className="mb-3">
                 <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  Settings & QR Code Sync
+                  Settings & Piping Sync
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button
@@ -1659,7 +1659,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
             } backdrop-blur-sm border text-sm font-medium`}
           >
             <SettingsIcon className="w-4 h-4" />
-            Settings & QR Code Sync
+            Settings & Piping Sync
             {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
           
@@ -1690,11 +1690,14 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               {/* QR Code Sync UI */}
               <div className="mb-4">
                 <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  QR Code Synchronization
+                  Piping Server Synchronization
                 </h3>
-                <SimpleQRCodeSyncUI
+                <PipingSyncUI
                   isDark={isDark}
-                  conversationStore={ConversationStore}
+                  pipingSyncManager={pipingSyncManager}
+                  isSyncing={isSyncing}
+                  isAvailable={isPipingSyncAvailable}
+                  error={syncError}
                 />
               </div>
               
