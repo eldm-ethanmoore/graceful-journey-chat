@@ -116,11 +116,26 @@ export const PipingSyncUI: React.FC<PipingSyncUIProps> = ({
       return;
     }
     
+    // Reset state before starting
     setInternalError(null);
+    setProgress(null);
+    
+    // If we were in a different mode, cancel first and wait a moment
+    if (syncMode && syncMode !== 'send') {
+      await handleCancel();
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
     setSyncMode('send');
     
     try {
       console.log("Starting piping sending...");
+      
+      // Make sure we're not already sending
+      if (syncManagerRef.current.isSendingInProgress()) {
+        syncManagerRef.current.stopSending();
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
       
       // Use custom path if provided, otherwise generate a random one
       const path = customPath.trim() || undefined;
@@ -131,6 +146,15 @@ export const PipingSyncUI: React.FC<PipingSyncUIProps> = ({
     } catch (error: any) {
       console.error("Failed to start sending via piping:", error);
       setInternalError(error.message || 'Failed to start sending data');
+      
+      // Reset UI state on error
+      if (error.name === 'AbortError') {
+        // If it's an abort error, wait a moment and try to reset the state
+        setTimeout(() => {
+          setSyncMode(null);
+          setInternalIsSyncing(false);
+        }, 300);
+      }
     }
   };
   
@@ -147,7 +171,16 @@ export const PipingSyncUI: React.FC<PipingSyncUIProps> = ({
       return;
     }
     
+    // Reset state before starting
     setInternalError(null);
+    setProgress(null);
+    
+    // If we were in a different mode, cancel first and wait a moment
+    if (syncMode && syncMode !== 'receive') {
+      await handleCancel();
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
     setSyncMode('receive');
     
     try {
@@ -155,27 +188,55 @@ export const PipingSyncUI: React.FC<PipingSyncUIProps> = ({
       
       // Use the entered connection path
       const path = customPath.trim() || connectionPath.trim();
+      
+      // Make sure we're not already receiving
+      if (syncManagerRef.current.isReceivingInProgress()) {
+        syncManagerRef.current.stopReceiving();
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
       await syncManagerRef.current.startReceiving(path);
       
       console.log("Piping receiving started with path:", path);
     } catch (error: any) {
       console.error("Failed to start receiving via piping:", error);
       setInternalError(error.message || 'Failed to start receiving data');
+      
+      // Reset UI state on error
+      if (error.name === 'AbortError') {
+        // If it's an abort error, wait a moment and try to reset the state
+        setTimeout(() => {
+          setSyncMode(null);
+          setInternalIsSyncing(false);
+        }, 300);
+      }
     }
   };
   
   // Cancel sync
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!syncManagerRef.current) return;
     
-    if (syncMode === 'send' && syncManagerRef.current.isSendingInProgress()) {
-      syncManagerRef.current.stopSending();
-    } else if (syncMode === 'receive' && syncManagerRef.current.isReceivingInProgress()) {
-      syncManagerRef.current.stopReceiving();
-    }
-    
+    // First update UI state to prevent race conditions
     setSyncMode(null);
     setProgress(null);
+    setInternalIsSyncing(false);
+    
+    // Then stop the operations
+    try {
+      if (syncMode === 'send' && syncManagerRef.current.isSendingInProgress()) {
+        syncManagerRef.current.stopSending();
+      } else if (syncMode === 'receive' && syncManagerRef.current.isReceivingInProgress()) {
+        syncManagerRef.current.stopReceiving();
+      }
+    } catch (error) {
+      console.warn("Error stopping sync operation:", error);
+    }
+    
+    // Add a small delay before resetting input fields
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Reset input fields
     setConnectionPath('');
     setCustomPath('');
   };

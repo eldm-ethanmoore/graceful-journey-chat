@@ -67,10 +67,14 @@ export class PipingSyncManager extends EventEmitter {
     if (this.isSending) {
       console.log("PipingSyncManager: Already sending, stopping previous session");
       this.stopSending();
+      
+      // Add a small delay to ensure the previous operation is fully stopped
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    this.isSending = true;
+    // Make sure we create a fresh abort controller
     this.sendAbortController = new AbortController();
+    this.isSending = true;
 
     try {
       // Get all branches and prepare data
@@ -143,11 +147,22 @@ export class PipingSyncManager extends EventEmitter {
    */
   stopSending(): void {
     console.log("PipingSyncManager: stopSending called");
-    if (this.sendAbortController) {
-      this.sendAbortController.abort();
-      this.sendAbortController = null;
-    }
+    
+    // First set the flag to false to prevent race conditions
     this.isSending = false;
+    
+    // Then abort the controller if it exists
+    if (this.sendAbortController) {
+      try {
+        this.sendAbortController.abort();
+      } catch (error) {
+        console.warn("PipingSyncManager: Error aborting send controller:", error);
+      } finally {
+        this.sendAbortController = null;
+      }
+    }
+    
+    // Emit send-completed event to ensure UI is updated
     this.emit('send-completed');
   }
 
@@ -162,10 +177,14 @@ export class PipingSyncManager extends EventEmitter {
     if (this.isReceiving) {
       console.log("PipingSyncManager: Already receiving, stopping previous session");
       this.stopReceiving();
+      
+      // Add a small delay to ensure the previous operation is fully stopped
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    this.isReceiving = true;
+    // Make sure we create a fresh abort controller
     this.receiveAbortController = new AbortController();
+    this.isReceiving = true;
 
     try {
       console.log("PipingSyncManager: Emitting receive-started event");
@@ -251,11 +270,23 @@ export class PipingSyncManager extends EventEmitter {
    */
   stopReceiving(): void {
     console.log("PipingSyncManager: stopReceiving called");
-    if (this.receiveAbortController) {
-      this.receiveAbortController.abort();
-      this.receiveAbortController = null;
-    }
+    
+    // First set the flag to false to prevent race conditions
     this.isReceiving = false;
+    
+    // Then abort the controller if it exists
+    if (this.receiveAbortController) {
+      try {
+        this.receiveAbortController.abort();
+      } catch (error) {
+        console.warn("PipingSyncManager: Error aborting receive controller:", error);
+      } finally {
+        this.receiveAbortController = null;
+      }
+    }
+    
+    // Emit receive-completed event to ensure UI is updated
+    this.emit('receive-completed', null);
   }
 
   /**
