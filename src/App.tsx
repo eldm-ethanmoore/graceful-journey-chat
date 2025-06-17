@@ -3,14 +3,15 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye, Bluetooth, BluetoothSearching, BluetoothOff } from "lucide-react"
+import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye, QrCode } from "lucide-react"
 import { RainbowAuthUI } from "./components/RainbowAuthUI"
 import { LiquidGlassWrapper } from "./components/LiquidGlassWrapper"
 import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
 import type { AppSettings } from "./utils/secureStorage"
 import { ContextPreview } from "./ContextPreview"
 import { ModelSwitchConfirmModal } from "./ModelSwitchConfirmModal"
-import { BluetoothManager } from './sync/BluetoothManager';
+import { QRCodeSyncManager } from './sync/QRCodeSyncManager';
+import { SimpleQRCodeSyncUI } from './components/SimpleQRCodeSyncUI';
 
 interface Message extends StoredMessage {
   id: string
@@ -472,12 +473,10 @@ function App() {
   // Always show these features - no toggles
   const showAuthUI = true
   const [temperature, setTemperature] = useState(DEFAULT_SETTINGS.temperature)
-  const [bluetoothManager] = useState(() => new BluetoothManager(ConversationStore));
-  const [bluetoothDevice, setBluetoothDevice] = useState<any>(null);
-  const [isBluetoothConnected, setIsBluetoothConnected] = useState(false);
+  const [qrCodeSyncManager] = useState(() => new QRCodeSyncManager(ConversationStore));
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isBluetoothAvailable, setIsBluetoothAvailable] = useState(false);
-  const [bluetoothError, setBluetoothError] = useState<string | null>(null);
+  const [isQRCodeSyncAvailable, setIsQRCodeSyncAvailable] = useState(true);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [maxTokens, setMaxTokens] = useState(DEFAULT_SETTINGS.maxTokens)
   const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
   const [showTimestamps, setShowTimestamps] = useState(DEFAULT_SETTINGS.showTimestamps)
@@ -562,46 +561,46 @@ function App() {
     }
   }, [input, isInResponseMode])
   
-  // Bluetooth event listeners
+  // QR Code Sync event listeners
   useEffect(() => {
-    // Check if Bluetooth is available
-    setIsBluetoothAvailable(bluetoothManager.isBluetoothAvailable());
+    // Check if QR Code Sync is available
+    setIsQRCodeSyncAvailable(qrCodeSyncManager.isAvailable());
     
-    const handleConnected = () => {
-      setIsBluetoothConnected(true);
-      setBluetoothError(null);
-    };
-    const handleDisconnected = () => {
-      setIsBluetoothConnected(false);
-      setBluetoothDevice(null);
-    };
-    const handleSyncStarted = () => setIsSyncing(true);
-    const handleSyncCompleted = () => {
+    const handleSendStarted = () => setIsSyncing(true);
+    const handleSendCompleted = () => {
       setIsSyncing(false);
-      setBluetoothError(null);
+      setSyncError(null);
     };
-    const handleSyncError = () => setIsSyncing(false);
-    const handleError = (error: Error) => {
-      setBluetoothError(error.message);
+    const handleReceiveStarted = () => setIsSyncing(true);
+    const handleReceiveCompleted = () => {
+      setIsSyncing(false);
+      setSyncError(null);
+    };
+    const handleSendError = (error: Error) => {
+      setSyncError(error.message);
+      setIsSyncing(false);
+    };
+    const handleReceiveError = (error: Error) => {
+      setSyncError(error.message);
       setIsSyncing(false);
     };
 
-    bluetoothManager.on('connected', handleConnected);
-    bluetoothManager.on('disconnected', handleDisconnected);
-    bluetoothManager.on('syncStarted', handleSyncStarted);
-    bluetoothManager.on('syncCompleted', handleSyncCompleted);
-    bluetoothManager.on('syncError', handleSyncError);
-    bluetoothManager.on('error', handleError);
+    qrCodeSyncManager.on('send-started', handleSendStarted);
+    qrCodeSyncManager.on('send-completed', handleSendCompleted);
+    qrCodeSyncManager.on('receive-started', handleReceiveStarted);
+    qrCodeSyncManager.on('receive-completed', handleReceiveCompleted);
+    qrCodeSyncManager.on('send-error', handleSendError);
+    qrCodeSyncManager.on('receive-error', handleReceiveError);
 
     return () => {
-      bluetoothManager.off('connected', handleConnected);
-      bluetoothManager.off('disconnected', handleDisconnected);
-      bluetoothManager.off('syncStarted', handleSyncStarted);
-      bluetoothManager.off('syncCompleted', handleSyncCompleted);
-      bluetoothManager.off('syncError', handleSyncError);
-      bluetoothManager.off('error', handleError);
+      qrCodeSyncManager.off('send-started', handleSendStarted);
+      qrCodeSyncManager.off('send-completed', handleSendCompleted);
+      qrCodeSyncManager.off('receive-started', handleReceiveStarted);
+      qrCodeSyncManager.off('receive-completed', handleReceiveCompleted);
+      qrCodeSyncManager.off('send-error', handleSendError);
+      qrCodeSyncManager.off('receive-error', handleReceiveError);
     };
-  }, [bluetoothManager]);
+  }, [qrCodeSyncManager]);
 
   const loadOrCreateDefaultBranch = async () => {
     const branches = await ConversationStore.getAllBranches()
@@ -1112,51 +1111,8 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
     handleNewConversation()
   }
 
-  const handleBluetoothConnect = async () => {
-    setBluetoothError(null);
-    try {
-      if (!isBluetoothAvailable) {
-        setBluetoothError('Bluetooth is not available in this browser');
-        return;
-      }
-      
-      const device = await bluetoothManager.requestDevice();
-      if (device) {
-        setBluetoothDevice(device);
-        const connected = await bluetoothManager.connect();
-        if (connected) {
-          console.log('Bluetooth connected successfully');
-        }
-      }
-    } catch (error: any) {
-      console.error('Bluetooth connection error:', error);
-      setBluetoothError(error.message || 'Failed to connect to Bluetooth device');
-    }
-  };
-
-  const handleBluetoothDisconnect = async () => {
-    setBluetoothError(null);
-    try {
-      await bluetoothManager.disconnect();
-    } catch (error: any) {
-      console.error('Bluetooth disconnect error:', error);
-      setBluetoothError(error.message || 'Failed to disconnect Bluetooth device');
-    }
-  };
-
-  const handleBluetoothSync = async () => {
-    setBluetoothError(null);
-    try {
-      if (!isBluetoothConnected) {
-        setBluetoothError('Not connected to any Bluetooth device');
-        return;
-      }
-      await bluetoothManager.syncData();
-    } catch (error: any) {
-      console.error('Sync error:', error);
-      setBluetoothError(error.message || 'Failed to sync data');
-    }
-  };
+  // No need for explicit connect/disconnect functions with QR code sync
+  // The QRCodeSyncUI component handles these operations internally
 
   // Handle keyboard events in the textarea
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1324,62 +1280,19 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
 
             {/* Right side - Desktop controls */}
             <div className="hidden lg:flex items-center gap-3">
-              {/* Bluetooth Controls */}
+              {/* Settings Button */}
               <div className="flex items-center gap-2">
-                {!isBluetoothAvailable ? (
-                  <div
-                    className={`p-2 rounded-lg ${
-                      isDark ? "bg-gray-700/50 text-gray-400" : "bg-gray-200/50 text-gray-500"
-                    } flex items-center gap-1`}
-                    title="Bluetooth not available in this browser"
-                  >
-                    <BluetoothOff className="w-4 h-4" />
-                  </div>
-                ) : !isBluetoothConnected ? (
-                  <button
-                    onClick={handleBluetoothConnect}
-                    className={`p-2 rounded-lg transition-colors duration-300 ${
-                      isDark
-                        ? "bg-[#03a9f4]/20 hover:bg-[#03a9f4]/30 text-[#03a9f4]"
-                        : "bg-[#0088fb]/10 hover:bg-[#0088fb]/20 text-[#0088fb]"
-                    } flex items-center gap-1`}
-                    title="Connect Bluetooth Device"
-                  >
-                    <Bluetooth className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleBluetoothSync}
-                      disabled={isSyncing}
-                      className={`p-2 rounded-lg transition-colors duration-300 ${
-                        isSyncing
-                          ? "opacity-50 cursor-not-allowed"
-                          : isDark
-                            ? "bg-[#2ecc71]/20 hover:bg-[#2ecc71]/30 text-[#2ecc71]"
-                            : "bg-[#54ad95]/10 hover:bg-[#54ad95]/20 text-[#54ad95]"
-                      } flex items-center gap-1`}
-                      title="Sync Data"
-                    >
-                      {isSyncing ? (
-                        <BluetoothSearching className="w-4 h-4 animate-pulse" />
-                      ) : (
-                        <Bluetooth className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      onClick={handleBluetoothDisconnect}
-                      className={`p-2 rounded-lg transition-colors duration-300 ${
-                        isDark
-                          ? "bg-red-500/20 hover:bg-red-500/30 text-red-300"
-                          : "bg-red-500/10 hover:bg-red-500/20 text-red-700"
-                      } flex items-center gap-1`}
-                      title="Disconnect"
-                    >
-                      <BluetoothOff className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-2 rounded-lg transition-colors duration-300 ${
+                    isDark
+                      ? "bg-[#03a9f4]/20 hover:bg-[#03a9f4]/30 text-[#03a9f4]"
+                      : "bg-[#0088fb]/10 hover:bg-[#0088fb]/20 text-[#0088fb]"
+                  } flex items-center gap-1`}
+                  title="Settings & QR Code Sync"
+                >
+                  <SettingsIcon className="w-4 h-4" />
+                </button>
               </div>
               
               {/* Mode Switcher */}
@@ -1574,66 +1487,26 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                 </button>
               )}
               
-              {/* Bluetooth Controls */}
+              {/* Settings Button for Mobile */}
               <div className="mb-3">
                 <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  Bluetooth
+                  Settings & QR Code Sync
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
-                  {!isBluetoothConnected ? (
-                    <button
-                      onClick={() => {
-                        handleBluetoothConnect();
-                        setShowMobileMenu(false);
-                      }}
-                      className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                        isDark
-                          ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30"
-                          : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
-                      } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                    >
-                      <Bluetooth className="w-4 h-4" />
-                      Connect Device
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          handleBluetoothSync();
-                          setShowMobileMenu(false);
-                        }}
-                        disabled={isSyncing}
-                        className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                          isSyncing
-                            ? "opacity-50 cursor-not-allowed"
-                            : isDark
-                              ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                              : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                        } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                      >
-                        {isSyncing ? (
-                          <BluetoothSearching className="w-4 h-4 animate-pulse" />
-                        ) : (
-                          <Bluetooth className="w-4 h-4" />
-                        )}
-                        Sync Data
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleBluetoothDisconnect();
-                          setShowMobileMenu(false);
-                        }}
-                        className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                          isDark
-                            ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30"
-                            : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-red-500/30"
-                        } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                      >
-                        <BluetoothOff className="w-4 h-4" />
-                        Disconnect
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={() => {
+                      setShowSettings(true);
+                      setShowMobileMenu(false);
+                    }}
+                    className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
+                      isDark
+                        ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30"
+                        : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                    } backdrop-blur-sm border flex items-center justify-center gap-2`}
+                  >
+                    <SettingsIcon className="w-4 h-4" />
+                    Open Settings
+                  </button>
                 </div>
               </div>
               
@@ -1786,7 +1659,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
             } backdrop-blur-sm border text-sm font-medium`}
           >
             <SettingsIcon className="w-4 h-4" />
-            Settings
+            Settings & QR Code Sync
             {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
           
@@ -1814,65 +1687,15 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                 </div>
               )}
               
-              {/* Bluetooth UI */}
+              {/* QR Code Sync UI */}
               <div className="mb-4">
                 <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  Bluetooth Synchronization
+                  QR Code Synchronization
                 </h3>
-                <div className={`p-4 rounded-xl transition-all duration-500 ${
-                  isDark ? 'bg-[#333333]/60 border-[#2ecc71]/30' : 'bg-[#f0f8ff]/60 border-[#54ad95]/30'
-                } backdrop-blur-xl border`}>
-                  <p className={`text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    Sync your conversations with Bluetooth devices.
-                  </p>
-                  <div className="mt-4 grid grid-cols-1 gap-3">
-                    {!isBluetoothConnected ? (
-                      <button
-                        onClick={handleBluetoothConnect}
-                        className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                          isDark
-                            ? 'bg-[#03a9f4]/20 hover:bg-[#03a9f4]/30 text-[#03a9f4] border-[#03a9f4]/20'
-                            : 'bg-[#0088fb]/10 hover:bg-[#0088fb]/20 text-[#0088fb] border-[#0088fb]/20'
-                        } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                      >
-                        <Bluetooth className="w-4 h-4" />
-                        Connect Bluetooth Device
-                      </button>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={handleBluetoothSync}
-                          disabled={isSyncing}
-                          className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                            isSyncing
-                              ? "opacity-50 cursor-not-allowed"
-                              : isDark
-                                ? "bg-[#2ecc71]/20 hover:bg-[#2ecc71]/30 text-[#2ecc71] border-[#2ecc71]/20"
-                                : "bg-[#54ad95]/10 hover:bg-[#54ad95]/20 text-[#54ad95] border-[#54ad95]/20"
-                          } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                        >
-                          {isSyncing ? (
-                            <BluetoothSearching className="w-4 h-4 animate-pulse" />
-                          ) : (
-                            <Bluetooth className="w-4 h-4" />
-                          )}
-                          Sync Data
-                        </button>
-                        <button
-                          onClick={handleBluetoothDisconnect}
-                          className={`px-4 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                            isDark
-                              ? "bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-500/20"
-                              : "bg-red-500/10 hover:bg-red-500/20 text-red-700 border-red-200/50"
-                          } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                        >
-                          <BluetoothOff className="w-4 h-4" />
-                          Disconnect
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <SimpleQRCodeSyncUI
+                  isDark={isDark}
+                  conversationStore={ConversationStore}
+                />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
