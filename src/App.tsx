@@ -9,8 +9,18 @@ import { CompactAuthButton } from "./components/CompactAuthButton"
 import { SendDataButton } from "./components/SendDataButton"
 import { ReceiveDataButton } from "./components/ReceiveDataButton"
 import { LiquidGlassWrapper } from "./components/LiquidGlassWrapper"
+import { ApiKeyModal } from "./components/ApiKeyModal"
+import { MobileBranchPanel } from "./components/MobileBranchPanel"
+import { ConsentBanner } from "./components/ConsentBanner"
+import { SettingsPanel } from "./components/SettingsPanel"
+import { MobileMenu } from "./components/MobileMenu"
+import { HeaderSection } from "./components/HeaderSection"
+import { ChatInterface } from "./components/ChatInterface"
 import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
 import type { AppSettings } from "./utils/secureStorage"
+import { generateContextPreview, parseMarkdownContext } from "./utils/contextUtils"
+import { sendMessage as sendMessageUtil } from "./utils/messagingUtils"
+import * as handlers from "./utils/appHandlers"
 import { ContextPreview } from "./ContextPreview"
 import { ModelSwitchConfirmModal } from "./ModelSwitchConfirmModal"
 import { PipingSyncManager } from './sync/PipingSyncManager';
@@ -33,408 +43,8 @@ interface AttestationData {
   verified: boolean
 }
 
-const ApiKeyModal = ({
-  isOpen,
-  onClose,
-  onSave,
-  isDark,
-  initialRedPillKey,
-  initialOpenRouterKey,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  onSave: (keys: { redpill: string; openrouter: string }) => void
-  isDark: boolean
-  initialRedPillKey: string | null
-  initialOpenRouterKey: string | null
-}) => {
-  const [redPillApiKey, setRedPillApiKey] = useState("")
-  const [openRouterApiKey, setOpenRouterApiKey] = useState("")
 
-  useEffect(() => {
-    if (isOpen) {
-      setRedPillApiKey(initialRedPillKey || "")
-      setOpenRouterApiKey(initialOpenRouterKey || "")
-    }
-  }, [isOpen, initialRedPillKey, initialOpenRouterKey])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSave({ redpill: redPillApiKey, openrouter: openRouterApiKey })
-    onClose()
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div
-        className={`w-full max-w-md rounded-2xl p-6 shadow-2xl transition-all duration-300 ${
-          isDark ? "bg-[#333333] text-white" : "bg-white text-gray-900"
-        }`}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold">API Keys</h2>
-          <button
-            onClick={onClose}
-            className={`p-1 rounded-full ${isDark ? "hover:bg-[#444444]" : "hover:bg-gray-100"}`}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-              RedPill API Key
-            </label>
-            <input
-              type="password"
-              value={redPillApiKey}
-              onChange={(e) => setRedPillApiKey(e.target.value)}
-              placeholder="sk-..."
-              className={`w-full px-4 py-3 rounded-lg border text-base ${
-                isDark
-                  ? "bg-[#444444] border-[#555555] text-white"
-                  : "bg-white border-gray-300 text-gray-900"
-              } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-              OpenRouter API Key
-            </label>
-            <input
-              type="password"
-              value={openRouterApiKey}
-              onChange={(e) => setOpenRouterApiKey(e.target.value)}
-              placeholder="sk-or-..."
-              className={`w-full px-4 py-3 rounded-lg border text-base ${
-                isDark
-                  ? "bg-[#444444] border-[#555555] text-white"
-                  : "bg-white border-gray-300 text-gray-900"
-              } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-4 py-2 rounded-lg ${
-                isDark
-                  ? "bg-[#444444] hover:bg-[#555555] text-white"
-                  : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-              }`}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-2"
-            >
-              <Key className="w-4 h-4" />
-              Save Keys
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-const MobileBranchPanel = ({
-  currentBranch,
-  onBranchSelect,
-  onCreateBranch,
-  messages,
-  isDark,
-  isOpen,
-  onClose,
-  setShowMobileMenu,
-  handleNewConversation,
-  setIsDark
-}: {
-  currentBranch: Branch | null
-  onBranchSelect: (branch: Branch) => void
-  onCreateBranch: (name: string) => void
-  messages: Message[]
-  isDark: boolean
-  isOpen: boolean
-  onClose: () => void
-  setShowMobileMenu: (show: boolean) => void
-  handleNewConversation: () => void
-  setIsDark: (isDark: boolean) => void
-}) => {
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [showNewBranchDialog, setShowNewBranchDialog] = useState(false)
-  const [newBranchName, setNewBranchName] = useState("")
-
-  useEffect(() => {
-    if (isOpen) {
-      loadBranches()
-    }
-  }, [isOpen])
-
-  const loadBranches = async () => {
-    const allBranches = await ConversationStore.getAllBranches()
-    setBranches(allBranches)
-  }
-
-  const handleCreateBranch = async () => {
-    if (newBranchName.trim()) {
-      await onCreateBranch(newBranchName)
-      setNewBranchName("")
-      setShowNewBranchDialog(false)
-      loadBranches()
-    }
-  }
-
-  const handleSnapshot = async () => {
-    if (currentBranch) {
-      const description = prompt("Snapshot description (optional):")
-      await ConversationStore.createSnapshot(currentBranch.id, messages, description || undefined)
-      alert("Snapshot saved!")
-    }
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-20 lg:hidden"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      
-      {/* Panel */}
-      <div className={`fixed inset-y-0 left-0 z-40 w-full max-w-sm transform transition-transform duration-300 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      } ${isDark ? 'bg-[#1a1d23]/95' : 'bg-[#f7f8f9]/95'} backdrop-blur-xl border-r ${
-        isDark ? 'border-[#2ecc71]/30' : 'border-[#54ad95]/30'
-      }`}>
-        
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200/20">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className={`p-2 rounded-lg flex items-center gap-1 ${isDark ? 'hover:bg-[#2ecc71]/20 text-[#2ecc71]' : 'hover:bg-[#0088fb]/20 text-[#0088fb]'}`}
-              aria-label="Back to chat"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-              <span className="text-sm">Back</span>
-            </button>
-          </div>
-          <h3 className={`font-bold ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
-            Branches
-          </h3>
-          <div className="w-10"></div> {/* Spacer for alignment */}
-        </div>
-
-        <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-140px)]">
-          {/* Current Branch Info */}
-          {currentBranch && (
-            <div className={`p-4 rounded-xl ${
-              isDark ? "bg-[#2ecc71]/20 border-[#2ecc71]/30 text-[#2ecc71]" : "bg-[#0088fb]/10 border-[#0088fb]/20 text-[#0088fb]"
-            } backdrop-blur-sm border`}>
-              <div className="flex items-center gap-2 mb-2">
-                <GitBranch className="w-4 h-4" />
-                <p className="font-semibold text-sm">{currentBranch.name}</p>
-              </div>
-              <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#1a1d23]/70"}`}>
-                {messages.length} messages
-              </p>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 gap-3">
-            <button
-              onClick={() => setShowNewBranchDialog(true)}
-              className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
-                isDark
-                  ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                  : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-              } backdrop-blur-sm border flex items-center justify-center gap-2 text-sm`}
-            >
-              <Plus className="w-4 h-4" />
-              New Branch
-            </button>
-
-            <button
-              onClick={handleSnapshot}
-              disabled={!currentBranch}
-              className={`w-full px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
-                isDark
-                  ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
-                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#1a1d23] border-[#54ad95]/20"
-              } backdrop-blur-sm border disabled:opacity-50 flex items-center justify-center gap-2 text-sm`}
-            >
-              <Camera className="w-4 h-4" />
-              Save Snapshot
-            </button>
-          </div>
-
-          {/* Branch List */}
-          <div className="space-y-3">
-            {branches.map((branch) => (
-              <div
-                key={branch.id}
-                onClick={() => {
-                  onBranchSelect(branch)
-                  onClose()
-                }}
-                className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${
-                  currentBranch?.id === branch.id
-                    ? isDark
-                      ? "bg-[#2ecc71]/30 border-[#2ecc71]/50"
-                      : "bg-[#54ad95]/20 border-[#54ad95]/40"
-                    : isDark
-                      ? "bg-[#333333]/60 hover:bg-[#444444]/80 border-[#2ecc71]/20"
-                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 border-[#54ad95]/20"
-                } backdrop-blur-sm border`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`font-medium text-sm ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
-                    {branch.name}
-                  </span>
-                  {branch.parentId && (
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      isDark ? "bg-[#2ecc71]/20 text-[#2ecc71]" : "bg-[#54ad95]/10 text-[#54ad95]"
-                    }`}>
-                      forked
-                    </span>
-                  )}
-                </div>
-                <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#1a1d23]/70"}`}>
-                  {branch.messages.length} msgs • {branch.createdAt.toLocaleDateString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Mobile Header Menu Items - Only show on mobile */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200/20 lg:hidden">
-          <button
-            onClick={() => {
-              setShowMobileMenu(true);
-              onClose();
-            }}
-            className={`w-full p-3 rounded-lg flex items-center justify-center gap-2 ${
-              isDark ? 'bg-[#333333]/60 text-[#f0f8ff]' : 'bg-[#f0f8ff]/60 text-[#1a1d23]'
-            }`}
-          >
-            <Menu className="w-5 h-5" />
-            <span className="text-sm font-medium">Open Menu</span>
-          </button>
-        </div>
-
-        {/* New Branch Dialog */}
-        {showNewBranchDialog && (
-          <div className="fixed inset-0 bg-[#1a1d23]/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`p-6 rounded-2xl w-full max-w-sm ${
-              isDark ? "bg-[#1a1d23]/95 border-[#2ecc71]/30" : "bg-[#f7f8f9]/95 border-[#0088fb]/30"
-            } backdrop-blur-xl border shadow-2xl`}>
-              <h3 className={`text-lg font-bold mb-4 ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
-                Create New Branch
-              </h3>
-              <input
-                type="text"
-                value={newBranchName}
-                onChange={(e) => setNewBranchName(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleCreateBranch()}
-                placeholder="Branch name..."
-                className={`w-full px-4 py-3 rounded-xl text-base ${
-                  isDark
-                    ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff] placeholder-[#f0f8ff]/50"
-                    : "bg-[#f0f8ff]/60 border-[#0088fb]/30 text-[#1a1d23] placeholder-[#1a1d23]/50"
-                } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#0088fb]/50"
-                } mb-4`}
-                autoFocus
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCreateBranch}
-                  className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
-                    isDark
-                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                  } backdrop-blur-sm border`}
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => setShowNewBranchDialog(false)}
-                  className={`flex-1 px-4 py-3 rounded-xl font-medium text-sm ${
-                    isDark
-                      ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
-                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#1a1d23] border-[#54ad95]/20"
-                  } backdrop-blur-sm border`}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </>
-  )
-}
-
-// Consent Banner Component
-const ConsentBanner = ({
-  isDark,
-  onAccept,
-  onDecline
-}: {
-  isDark: boolean,
-  onAccept: () => void,
-  onDecline: () => void
-}) => {
-  return (
-    <div className={`fixed bottom-0 left-0 right-0 z-50 p-4 transition-all duration-500 ${
-      isDark ? "bg-[#1a1d23]/90 border-t border-[#2ecc71]/30" : "bg-[#f0f8ff]/90 border-t border-[#54ad95]/30"
-    } backdrop-blur-xl`}>
-      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
-          We use localStorage to save your preferences (theme, model selection, and settings).
-          This data stays on your device and helps provide a personalized experience.
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={onAccept}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-              isDark
-                ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-            } backdrop-blur-sm border`}
-          >
-            Accept
-          </button>
-          <button
-            onClick={onDecline}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-              isDark
-                ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
-                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#1a1d23] border-[#54ad95]/20"
-            } backdrop-blur-sm border`}
-          >
-            Decline
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -667,389 +277,46 @@ function App() {
     }
   }
 
-  // Helper function to format a message with timestamp
-  const formatMessageWithTimestamp = (msg: Message): string => {
-    const timestamp = new Date(msg.timestamp).toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    });
-    
-    const content = typeof msg.content === 'string'
-      ? msg.content
-      : (msg.content.find(c => c.type === 'text')?.text || '') + ' [image]';
 
-    return `[TIME: ${timestamp}] ${content}`;
-  };
-  
-  // Generate context preview in Markdown format
-  const generateContextPreview = (): string => {
-    // Create system message content
-    const systemContent = `# System Message
-
-CRITICAL INSTRUCTION - TIMESTAMPS:
-DO NOT MENTION OR USE TIMESTAMP DATA UNLESS EXPLICITLY REQUESTED BY THE USER.
-This is a strict requirement. Never reference times, dates, or message history unprompted.
-Never include phrases like "based on our conversation at [time]" or "as you mentioned earlier at [time]".
-Violation of this instruction is considered a serious error.
-
-You are an AI assistant in a chat application. This is ${messages.length > 0 ?
-  "a continuing conversation." : "the beginning of a new conversation."}
-  
-ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related information:
-1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
-2. When (and only when) the user specifically asks about previous messages from specific times or time ranges, you should:
-   - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
-   - Find relevant messages from those times by looking at the timestamps
-   - Summarize or quote those messages accurately
-   - Include the exact timestamps when referencing messages
-3. Handle natural language time expressions only when directly asked, like:
-   - "What did we discuss earlier?"
-   - "Show me what I said about X around 5pm"
-   - "What were we talking about 20 minutes ago?"
-   - "What did I ask yesterday?"
-  
-The current conversation has ${messages.length} previous messages.
-The current time is ${new Date().toLocaleString(undefined, {
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: true,
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-})}.
-Always maintain context from previous messages in the conversation.`;
-    
-    let markdownContent = "";
-    
-    // Add conversation history in reverse chronological order
-    const allMessages = [...messages];
-    if (input.trim() || attachment) {
-      let content: Message['content'];
-      if (attachment) {
-        content = [{ type: 'text', text: input }];
-        content.push({
-          type: 'image_url',
-          image_url: { url: attachment.preview as string },
-        });
-      } else {
-        content = input;
-      }
-      allMessages.push({
-        id: "preview",
-        role: "user",
-        content: content,
-        timestamp: new Date(),
-      } as Message);
-    }
-    
-    // Reverse the array to display newest messages first
-    allMessages.reverse().forEach((message, index) => {
-      const timestamp = new Date(message.timestamp).toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      });
-      
-      // The message number is now relative to the reversed order
-      markdownContent += `# ${message.role === "user" ? "User" : "Assistant"} Message (Newest #${index + 1})\n`;
-      markdownContent += `[TIME: ${timestamp}]\n\n`;
-      const content = typeof message.content === 'string'
-        ? message.content
-        : (message.content.find(c => c.type === 'text')?.text || '') + ' [image attached]';
-      markdownContent += `${content}\n\n`;
-      markdownContent += "---\n\n";
-    });
-    
-    // Append the system prompt at the end
-    markdownContent += systemContent;
-    
-    return markdownContent;
-  };
-  
-  // Parse Markdown context back to API format
-  const parseMarkdownContext = (markdown: string): any[] => {
-    const messages: any[] = [];
-    let currentMessage: any = null;
-    let systemMessage: any = null;
-    
-    // Split by markdown headers
-    const sections = markdown.split(/^# /m);
-    
-    for (const section of sections) {
-      if (!section.trim()) continue;
-      
-      if (section.startsWith("System Message")) {
-        // Parse system message
-        let content = section.replace("System Message", "").trim();
-        content = content.replace(/---\s*$/g, "").trim();
-        systemMessage = {
-          role: "system",
-          content: content
-        };
-      } else if (section.startsWith("User Message") || section.startsWith("Assistant Message")) {
-        // Parse user or assistant message
-        const isUser = section.startsWith("User Message");
-        const role = isUser ? "user" : "assistant";
-        
-        // Extract timestamp if present
-        const timeMatch = section.match(/\[TIME: (.*?)\]/);
-        const timestamp = timeMatch ? timeMatch[1] : null;
-        
-        // Get content (everything after the timestamp line until the end or ---)
-        let content = section;
-        if (timestamp) {
-          content = content.split(`[TIME: ${timestamp}]`)[1];
-        }
-        
-        // Remove the message number from the first line
-        content = content.replace(/^.*Message \d+.*$/m, "").trim();
-        
-        // Remove trailing separator if present
-        content = content.replace(/---\s*$/g, "").trim();
-        
-        messages.push({
-          role: role,
-          content: content
-        });
-      }
-    }
-    
-    // Reverse the messages to get chronological order (oldest to newest)
-    const chronologicalMessages = messages.reverse();
-
-    // Ensure system message is first
-    const result = systemMessage ? [systemMessage, ...chronologicalMessages] : chronologicalMessages;
-    return result;
+  // Wrapper function to match the expected signature for ChatInterface
+  const generateContextPreviewWrapper = (): string => {
+    return generateContextPreview(messages, input, attachment);
   };
 
   const sendMessage = async () => {
     const controller = new AbortController();
     setAbortController(controller);
-    console.log("sendMessage called with input:", input)
     
-    // Store the current input value to ensure we use it throughout this function
-    // This prevents issues with state updates clearing the input before we use it
-    const currentInput = input;
-    
-    // Don't proceed if there's no input, we're already loading, or there's no API key
-    if ((!currentInput.trim() && !attachment) || isLoading || (!apiKey && !openRouterApiKey)) {
-      console.log("Not sending message:", {
-        emptyInput: !currentInput.trim() && !attachment,
-        isLoading,
-        noApiKey: !apiKey && !openRouterApiKey
-      })
-      if (!apiKey && !openRouterApiKey) setShowApiKeyModal(true)
-      return
-    }
-    
-    // Log settings state for debugging
-    console.log("Current settings:", {
-      enableTimestamps,
-      showTimestamps,
+    await sendMessageUtil({
+      input,
+      attachment,
+      messages,
+      isLoading,
+      apiKey,
+      openRouterApiKey,
+      selectedModel,
       temperature,
-      maxTokens
-    })
-    
-    // We no longer intercept history queries - let the LLM handle them
-
-    let messageContent: Message['content'];
-    if (attachment) {
-      messageContent = [{ type: 'text', text: currentInput }];
-      messageContent.push({
-        type: 'image_url',
-        image_url: { url: attachment.preview as string },
-      });
-    } else {
-      messageContent = currentInput;
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: messageContent,
-      timestamp: new Date(),
-    }
-
-    // Always update messages array immediately to ensure history is preserved
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    
-    // Clear input and show thinking state
-    // Clear input first to prevent "double send" issues
-    setInput("");
-    setAttachment(null);
-    
-    // Then update UI state
-    setCurrentResponse("Thinking...");
-    setIsLoading(true);
-    setIsInResponseMode(true);
-    
-    // Save to branch if in structured mode
-    if (mode === "structured" && currentBranch) {
-      await ConversationStore.updateBranch(currentBranch.id, updatedMessages);
-    }
-    
-    console.log("Updated messages array with user message, now has", updatedMessages.length, "messages");
-    
-    // Check if there are previous messages to reference
-    const hasPreviousMessages = messages.length > 0;
-
-    try {
-      let apiMessages;
-      
-      if (isContextEdited && contextPreviewContent) {
-        // Parse the edited markdown context
-        try {
-          apiMessages = parseMarkdownContext(contextPreviewContent);
-          console.log("Using edited context:", apiMessages);
-        } catch (error) {
-          console.error("Failed to parse edited context:", error);
-          setCurrentResponse("Error: Invalid context format. Please check your markdown formatting.");
-          setIsLoading(false);
-          return;
-        }
-      } else {
-        // Create a more explicit system message about conversation history with time handling instructions
-        const systemMessage = {
-          role: "system",
-          content: ConversationStore.generateSystemPrompt(messages)
-        };
-        
-        // Make sure we're sending ALL previous messages to maintain conversation history
-        // Get all messages including the new user message
-        const allMessages = [...messages, userMessage];
-        console.log("Sending conversation history with", allMessages.length, "messages");
-        
-        // Format messages for the API with explicit timestamps for all messages
-        const timestampedMessages = allMessages.map(m => {
-          if (m.role === "user") {
-            const timestamp = new Date(m.timestamp).toLocaleString(undefined, {
-              year: 'numeric',
-              month: 'numeric',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true,
-              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-            });
-            let finalContent: Message['content'];
-
-            if (typeof m.content === 'string') {
-              const cleanedContent = m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]\s*/i, '');
-              finalContent = `[TIME: ${timestamp}] ${cleanedContent}`;
-            } else {
-              // It's an array
-              finalContent = m.content.map(part => {
-                if (part.type === 'text') {
-                  return { ...part, text: `[TIME: ${timestamp}] ${part.text}` };
-                }
-                return part;
-              });
-            }
-            return { role: m.role, content: finalContent };
-          }
-          return { role: m.role, content: m.content };
-        });
-        
-        // Combine system message with the conversation history
-        apiMessages = [systemMessage, ...timestampedMessages];
-      }
-      
-      const isRedPill = ConversationStore.isRedPillModel(selectedModel)
-      const apiUrl = isRedPill ? REDPILL_API_URL : OPENROUTER_API_URL
-      const activeApiKey = isRedPill ? apiKey : openRouterApiKey
-
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${activeApiKey}`,
-      }
-
-      if (!isRedPill) {
-        // OpenRouter requires these headers.
-        // Use a generic referrer or your app's actual URL.
-        headers["HTTP-Referer"] = "http://localhost:5173"
-        headers["X-Title"] = "Graceful Journey Chat"
-      }
-
-      const response = await fetch(`${apiUrl}/chat/completions`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: apiMessages,
-          temperature: temperature,
-          max_tokens: maxTokens,
-          stream: false,
-        }),
-        signal: controller.signal,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error?.message || 'API request failed')
-      }
-
-      const data = await response.json()
-      const responseContent = data.choices[0]?.message?.content || 'No response content'
-
-      const assistantMessage: Message = {
-        id: data.id || Date.now().toString(),
-        role: "assistant",
-        content: responseContent,
-        timestamp: new Date(),
-        attestation: attestation || undefined,
-      }
-
-      // Add the assistant's response to the messages array
-      const finalMessages = [...updatedMessages, assistantMessage];
-      
-      // Always update the messages array to preserve conversation history
-      setMessages(finalMessages);
-      console.log("Updated messages array with assistant response, now has", finalMessages.length, "messages");
-      
-      // Show the response in the UI
-      setCurrentResponse(responseContent);
-
-      // Reset context preview state
-      setIsContextEdited(false);
-      setContextPreviewContent("");
-      setShowContextPreview(false);
-
-      if (mode === "structured" && currentBranch) {
-        await ConversationStore.updateBranch(currentBranch.id, finalMessages)
-      }
-    } catch (error: any) {
-      console.error("Failed to send message:", error)
-      if (error.name === 'AbortError') {
-        setCurrentResponse("Request cancelled.");
-      } else {
-        const errorMessage = error.message || "Failed to send message. Please check your API key and connection."
-        setCurrentResponse(`Error: ${errorMessage}`)
-      }
-    } finally {
-      setIsLoading(false)
-    }
+      maxTokens,
+      attestation,
+      mode,
+      currentBranch,
+      isContextEdited,
+      contextPreviewContent,
+      setMessages,
+      setInput,
+      setAttachment,
+      setCurrentResponse,
+      setIsLoading,
+      setIsInResponseMode,
+      setIsContextEdited,
+      setContextPreviewContent,
+      setShowContextPreview,
+      setShowApiKeyModal,
+      abortController: controller
+    });
   }
 
-  const handleCancel = () => {
-    if (abortController) {
-      abortController.abort();
-    }
-  };
+  const handleCancel = () => handlers.handleCancel(abortController);
 
   const returnToInputState = () => {
     console.log("Returning to input state")
@@ -1106,115 +373,40 @@ Always maintain context from previous messages in the conversation.`;
     }
   }
 
-  const handleBranchSelect = async (branch: Branch) => {
-    setCurrentBranch(branch)
-    setMessages(branch.messages)
-    setMode("structured")
-    returnToInputState()
-  }
+  const handleBranchSelect = async (branch: Branch) =>
+    handlers.handleBranchSelect(branch, setCurrentBranch, setMessages, setMode, returnToInputState);
 
-  const handleCreateBranch = async (name: string) => {
-    const newBranch = await ConversationStore.createBranch(name, messages, currentBranch?.id)
-    setCurrentBranch(newBranch)
-    setMode("structured")
-  }
+  const handleCreateBranch = async (name: string) =>
+    handlers.handleCreateBranch(name, messages, currentBranch, setCurrentBranch, setMode);
 
-  const handleNewConversation = () => {
-    setMessages([])
-    setCurrentBranch(null)
-    setMode("ephemeral")
-    setCurrentResponse("")
-    setIsInResponseMode(false)
-    setInput("")
-    setShowMobileMenu(false)
-    // Reset context preview state
-    setContextPreviewContent("")
-    setIsContextEdited(false)
-    setShowContextPreview(false)
-    if (textareaRef.current) {
-      textareaRef.current.focus()
-    }
-  }
+  const handleNewConversation = () =>
+    handlers.handleNewConversation(
+      setMessages, setCurrentBranch, setMode, setCurrentResponse, setIsInResponseMode,
+      setInput, setShowMobileMenu, setContextPreviewContent, setIsContextEdited,
+      setShowContextPreview, textareaRef
+    );
 
-  const handlePinConversation = async () => {
-    const branch = await ConversationStore.createBranch("New Branch", messages)
-    setCurrentBranch(branch)
-    setMode("structured")
-    // After pinning, stay in the same view but now in structured mode
-  }
+  const handlePinConversation = async () =>
+    handlers.handlePinConversation(messages, setCurrentBranch, setMode);
   
-  const handleSaveApiKeys = (keys: { redpill: string; openrouter: string }) => {
-    ConversationStore.setRedPillApiKey(keys.redpill);
-    setApiKey(keys.redpill);
-    ConversationStore.setOpenRouterApiKey(keys.openrouter);
-    setOpenRouterApiKey(keys.openrouter);
-    setShowApiKeyModal(false);
-  };
+  const handleSaveApiKeys = (keys: { redpill: string; openrouter: string }) =>
+    handlers.handleSaveApiKeys(keys, setApiKey, setOpenRouterApiKey, setShowApiKeyModal);
   
-  const handleLogout = () => {
-    secureStorage.remove('redpill_api_key');
-    secureStorage.remove('openrouter_api_key');
-    setApiKey(null);
-    setOpenRouterApiKey(null);
-    setShowApiKeyModal(true)
-    handleNewConversation()
-  }
+  const handleLogout = () =>
+    handlers.handleLogout(setApiKey, setOpenRouterApiKey, setShowApiKeyModal, handleNewConversation);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAttachment({ file, preview: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) =>
+    handlers.handleFileSelect(e, setAttachment);
 
-  const handleExport = () => {
-    const systemPrompt = exportWithSystemPrompt ? ConversationStore.generateSystemPrompt(messages) : undefined;
-    const markdown = ConversationStore.exportAsMarkdown(messages, systemPrompt);
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `conversation-${new Date().toISOString()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const handleExport = () =>
+    handlers.handleExport(messages, exportWithSystemPrompt);
 
   // No need for explicit connect/disconnect functions with piping sync
   // The PipingSyncUI component handles these operations internally
 
   // Handle keyboard events in the textarea
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Always handle Enter key in the textarea, regardless of mode
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      console.log("Enter key pressed in textarea, isInResponseMode:", isInResponseMode)
-      
-      // If we're in response mode, return to input mode
-      if (isInResponseMode) {
-        console.log("Returning to input state from textarea handleKeyDown")
-        returnToInputState()
-        return
-      }
-      
-      // Otherwise, send the message if there's content
-      if (input.trim() && !isLoading) {
-        const messageToSend = input; // Store the input before it gets cleared
-        console.log("Sending message from handleKeyDown:", messageToSend)
-        // We need to call sendMessage() in a setTimeout to ensure React state updates properly
-        setTimeout(() => {
-          if (messageToSend.trim()) {
-            sendMessage();
-          }
-        }, 0);
-      }
-    }
-  }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) =>
+    handlers.handleKeyDown(e, isInResponseMode, returnToInputState, input, isLoading, sendMessage);
 
   // Global keyboard event handler for Enter key in response mode
   useEffect(() => {
@@ -1354,517 +546,61 @@ Always maintain context from previous messages in the conversation.`;
       />
 
       {/* Header */}
-      <div className={`transition-all duration-500 ${
-        isDark ? "bg-[#1a1d23]/80 border-b border-[#2ecc71]/30" : "bg-[#f0f8ff]/80 border-b border-[#54ad95]/20"
-      } backdrop-blur-xl sticky top-0 z-30`}>
-        <div className="max-w-4xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Left side - Logo and Menu */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  if (mode === "structured") {
-                    setShowBranchPanel(true)
-                  } else {
-                    setShowMobileMenu(true)
-                  }
-                }}
-                aria-label="Menu"
-                className={`p-2 rounded-lg transition-colors duration-300 ${
-                  isDark ? "hover:bg-white/10" : "hover:bg-black/10"
-                } lg:hidden`}
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-              
-              {/* Desktop branch toggle */}
-              <button
-                onClick={() => {
-                  if (mode !== "structured") {
-                    setMode("structured");
-                    if (!currentBranch && messages.length > 0) {
-                      handlePinConversation();
-                    }
-                  } else {
-                    setShowBranchPanel(!showBranchPanel);
-                  }
-                }}
-                className={`p-2 rounded-lg transition-colors duration-300 hidden lg:block ${
-                  isDark ? "hover:bg-white/10" : "hover:bg-black/10"
-                }`}
-                aria-label="Toggle sidebar"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16m-7 6h7"
-                    className={isDark ? "text-white" : "text-gray-900"}
-                  />
-                </svg>
-              </button>
-              
-              <img
-                src={isDark ? gjPalmLight : gjPalmDark}
-                alt="GJ Palm Logo"
-                className="w-6 h-6"
-                style={{
-                  filter: isDark
-                    ? "brightness(0) saturate(100%) invert(64%) sepia(69%) saturate(458%) hue-rotate(93deg) brightness(95%) contrast(89%)" // Green for dark mode (#2ecc71)
-                    : "brightness(0) saturate(100%) invert(47%) sepia(97%) saturate(1917%) hue-rotate(190deg) brightness(97%) contrast(101%)" // Blue for light mode (#0088fb)
-                }}
-              />
-              <h1 className={`text-xs lg:text-sm font-bold transition-colors duration-500 ${
-                isDark ? "text-white" : "text-gray-900"
-              }`}>
-                Graceful Journey Chat
-              </h1>
-            </div>
-
-            {/* Right side - Desktop controls */}
-            <div className="hidden lg:flex items-center gap-3">
-              {/* Wallet Connect Button */}
-              <div className="flex items-center ml-12">
-                <CompactAuthButton
-                  isDark={isDark}
-                />
-              </div>
-              
-              {/* Sync Buttons */}
-              <div className="flex items-center gap-2">
-                <SendDataButton
-                  isDark={isDark}
-                  isSending={isSending}
-                  syncCode={isSending ? pipingSyncManager.getCurrentSendPath() : undefined}
-                  onClick={() => {
-                    if (!isSending) {
-                      if (syncWarningAcknowledged) {
-                        pipingSyncManager.startSending();
-                      } else {
-                        setPendingSendAction(true);
-                        setShowSyncWarning(true);
-                      }
-                    } else {
-                      pipingSyncManager.stopSending();
-                    }
-                  }}
-                />
-                <ReceiveDataButton
-                  isDark={isDark}
-                  isReceiving={isReceiving}
-                  onClick={(path) => {
-                    if (!isReceiving && path) {
-                      if (syncWarningAcknowledged) {
-                        pipingSyncManager.startReceiving(path);
-                      } else {
-                        setPendingReceiveAction(path);
-                        setShowSyncWarning(true);
-                      }
-                    } else if (isReceiving) {
-                      pipingSyncManager.stopReceiving();
-                    }
-                  }}
-                />
-              </div>
-              
-              
-              {/* Mode Switcher */}
-              <div className={`flex rounded-xl p-1 transition-all duration-500 ${
-                isDark ? "bg-white/10" : "bg-black/10"
-              } backdrop-blur-sm border ${isDark ? "border-white/20" : "border-black/20"}`}>
-                <button
-                  onClick={() => setMode("ephemeral")}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-                    mode === "ephemeral"
-                      ? isDark
-                        ? "bg-[#2ecc71]/30 text-[#2ecc71] shadow-lg shadow-[#2ecc71]/20"
-                        : "bg-[#54ad95]/20 text-[#00171c] shadow-lg shadow-[#54ad95]/10"
-                      : isDark
-                        ? "text-[#f0f8ff] hover:text-white hover:bg-[#444444]"
-                        : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
-                  }`}
-                >
-                  ⚡ Ephemeral
-                </button>
-                <button
-                  onClick={() => {
-                    setMode("structured")
-                    if (!currentBranch && messages.length > 0) {
-                      handlePinConversation()
-                    }
-                  }}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-                    mode === "structured"
-                      ? isDark
-                        ? "bg-[#03a9f4]/30 text-[#03a9f4] shadow-lg shadow-[#03a9f4]/20"
-                        : "bg-[#54ad95]/20 text-[#54ad95] shadow-lg shadow-[#54ad95]/10"
-                      : isDark
-                        ? "text-[#f0f8ff] hover:text-white hover:bg-[#444444]"
-                        : "text-[#00171c]/70 hover:text-[#00171c] hover:bg-[#54ad95]/10"
-                  }`}
-                >
-                  🌿 Structured
-                </button>
-              </div>
-
-              {/* Theme Toggle */}
-              <button
-                onClick={() => {
-                  const newTheme = !isDark;
-                  setIsDark(newTheme);
-                  
-                  // Theme change is always applied for current session
-                  // but only saved if user has consented
-                  if (hasConsented) {
-                    console.log("Saving theme preference:", newTheme);
-                  }
-                }}
-                className={`p-3 rounded-xl transition-all duration-500 ${
-                  isDark
-                    ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71]"
-                    : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
-                } backdrop-blur-sm border ${
-                  isDark ? "border-[#2ecc71]/30" : "border-[#54ad95]/30"
-                } hover:scale-105 active:scale-95`}
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-
-              <select
-                value={selectedModel}
-                onChange={(e) => {
-                  const newModel = e.target.value;
-                  // Instead of immediately changing the model, store it as pending and show confirmation
-                  setPendingModelSelection(newModel);
-                  setShowModelSwitchModal(true);
-                }}
-                className={`px-4 py-2.5 text-sm rounded-xl transition-all duration-500 ${
-                  isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
-                } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
-                }`}
-              >
-                {ConversationStore.getAvailableModels().map((model) => (
-                  <option key={model.id} value={model.id} className={isDark ? "bg-gray-800" : "bg-white"}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex flex-col">
-                <button
-                  onClick={verifyAttestation}
-                  disabled={isVerifying}
-                  className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
-                    isDark
-                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                  } backdrop-blur-sm border disabled:opacity-50 hover:scale-105 active:scale-95 shadow-lg ${
-                    isDark ? "shadow-[#2ecc71]/20" : "shadow-[#54ad95]/10"
-                  }`}
-                >
-                  {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
-                </button>
-                {attestation && attestation.signing_address && (
-                  <div className={`text-xs mt-1 text-center truncate max-w-[180px] ${
-                    isDark ? "text-[#2ecc71]/70" : "text-[#54ad95]/70"
-                  }`} title={attestation.signing_address}>
-                    {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
-                  </div>
-                )}
-              </div>
-              {apiKey || openRouterApiKey ? (
-                <button
-                  onClick={handleLogout}
-                  className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
-                    isDark
-                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-[#54ad95]/30"
-                      : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-[#0088fb]/30"
-                  } backdrop-blur-sm border hover:scale-105 active:scale-95`}
-                >
-                  Logout
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowApiKeyModal(true)}
-                  className={`px-6 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
-                    isDark
-                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                  } backdrop-blur-sm border hover:scale-105 active:scale-95`}
-                >
-                  Login with API Key
-                </button>
-              )}
-            </div>
-
-            {/* Mobile Controls */}
-            <div className="flex items-center gap-2 lg:hidden">
-              {/* Wallet Connect Button - Mobile */}
-              <div className="ml-8">
-                <CompactAuthButton
-                  isDark={isDark}
-                />
-              </div>
-              
-              {/* Sync Buttons - Mobile */}
-              <div className="flex items-center gap-1">
-                <SendDataButton
-                  isDark={isDark}
-                  isSending={isSending}
-                  syncCode={isSending ? pipingSyncManager.getCurrentSendPath() : undefined}
-                  onClick={() => {
-                    if (!isSending) {
-                      if (syncWarningAcknowledged) {
-                        pipingSyncManager.startSending();
-                      } else {
-                        setPendingSendAction(true);
-                        setShowSyncWarning(true);
-                      }
-                    } else {
-                      pipingSyncManager.stopSending();
-                    }
-                  }}
-                />
-                <ReceiveDataButton
-                  isDark={isDark}
-                  isReceiving={isReceiving}
-                  onClick={(path) => {
-                    if (!isReceiving && path) {
-                      if (syncWarningAcknowledged) {
-                        pipingSyncManager.startReceiving(path);
-                      } else {
-                        setPendingReceiveAction(path);
-                        setShowSyncWarning(true);
-                      }
-                    } else if (isReceiving) {
-                      pipingSyncManager.stopReceiving();
-                    }
-                  }}
-                />
-              </div>
-              
-              {/* Mobile theme toggle */}
-              <button
-                onClick={() => {
-                  const newTheme = !isDark;
-                  setIsDark(newTheme);
-                  
-                  // Theme change is always applied for current session
-                  // but only saved if user has consented
-                  if (hasConsented) {
-                    console.log("Saving theme preference (mobile):", newTheme);
-                  }
-                }}
-                className={`p-2 rounded-xl transition-all duration-500 ${
-                  isDark ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
-                } backdrop-blur-sm border ${isDark ? "border-[#2ecc71]/30" : "border-[#54ad95]/30"}`}
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <HeaderSection
+        isDark={isDark}
+        setIsDark={setIsDark}
+        hasConsented={hasConsented}
+        mode={mode}
+        setMode={setMode}
+        setShowBranchPanel={setShowBranchPanel}
+        setShowMobileMenu={setShowMobileMenu}
+        currentBranch={currentBranch}
+        messages={messages}
+        handlePinConversation={handlePinConversation}
+        isSending={isSending}
+        isReceiving={isReceiving}
+        pipingSyncManager={pipingSyncManager}
+        syncWarningAcknowledged={syncWarningAcknowledged}
+        setPendingSendAction={setPendingSendAction}
+        setShowSyncWarning={setShowSyncWarning}
+        setPendingReceiveAction={setPendingReceiveAction}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        setPendingModelSelection={setPendingModelSelection}
+        setShowModelSwitchModal={setShowModelSwitchModal}
+        verifyAttestation={verifyAttestation}
+        isVerifying={isVerifying}
+        attestation={attestation}
+        apiKey={apiKey}
+        openRouterApiKey={openRouterApiKey}
+        handleLogout={handleLogout}
+        setShowApiKeyModal={setShowApiKeyModal}
+      />
 
       {/* Mobile Menu - Only visible on mobile */}
-      {showMobileMenu && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-            onClick={() => setShowMobileMenu(false)}
-          />
-          <LiquidGlassWrapper
-            className="fixed top-0 left-0 right-0 z-50 p-4 lg:hidden border-b"
-            isDark={isDark}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Menu</h3>
-              <button
-                onClick={() => setShowMobileMenu(false)}
-                className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/10'}`}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-3">
-              {/* Branches Button - Only show in structured mode */}
-              {mode === "structured" && (
-                <button
-                  onClick={() => {
-                    setShowBranchPanel(true);
-                    setShowMobileMenu(false);
-                  }}
-                  className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                    isDark
-                      ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30"
-                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                  } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                >
-                  <GitBranch className="w-4 h-4" />
-                  View Branches
-                </button>
-              )}
-              
-              {/* Settings Button for Mobile */}
-              <div className="mb-3">
-                <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  Settings
-                </h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <button
-                    onClick={() => {
-                      setShowSettings(true);
-                      setShowMobileMenu(false);
-                    }}
-                    className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                      isDark
-                        ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4] border-[#03a9f4]/30"
-                        : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
-                    } backdrop-blur-sm border flex items-center justify-center gap-2`}
-                  >
-                    <SettingsIcon className="w-4 h-4" />
-                    Open Settings
-                  </button>
-                </div>
-              </div>
-              
-              {/* Mode Switcher */}
-              <div className={`flex rounded-xl p-1 ${
-                isDark ? "bg-[#333333]/60" : "bg-[#f0f8ff]/60"
-              } backdrop-blur-sm border ${isDark ? "border-[#2ecc71]/30" : "border-[#0088fb]/30"}`}>
-                <button
-                  onClick={() => {
-                    setMode("ephemeral")
-                    setShowMobileMenu(false)
-                  }}
-                  className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                    mode === "ephemeral"
-                      ? isDark ? "bg-[#2ecc71]/30 text-[#2ecc71]" : "bg-[#54ad95]/20 text-[#00171c]"
-                      : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
-                  }`}
-                >
-                  ⚡ Ephemeral
-                </button>
-                <button
-                  onClick={() => {
-                    setMode("structured")
-                    if (!currentBranch && messages.length > 0) {
-                      handlePinConversation()
-                    }
-                    setShowMobileMenu(false)
-                  }}
-                  className={`flex-1 py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                    mode === "structured"
-                      ? isDark ? "bg-[#03a9f4]/30 text-[#03a9f4]" : "bg-[#54ad95]/20 text-[#54ad95]"
-                      : isDark ? "text-[#f0f8ff]" : "text-[#00171c]/70"
-                  }`}
-                >
-                  🌿 Structured
-                </button>
-              </div>
-
-              <select
-                value={selectedModel}
-                onChange={(e) => {
-                  const newModel = e.target.value;
-                  // Instead of immediately changing the model, store it as pending and show confirmation
-                  setPendingModelSelection(newModel);
-                  setShowModelSwitchModal(true);
-                }}
-                className={`w-full px-4 py-3 text-base rounded-xl ${
-                  isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
-                } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
-                  isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
-                }`}
-              >
-                {ConversationStore.getAvailableModels().map((model) => (
-                  <option key={model.id} value={model.id} className={isDark ? "bg-gray-800" : "bg-white"}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => {
-                  verifyAttestation()
-                  // Keep menu open to show verification status
-                }}
-                className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                  isDark
-                    ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                    : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                } backdrop-blur-sm border`}
-                disabled={isVerifying}
-              >
-                {isVerifying ? "Verifying..." : attestation ? "✓ Verified" : "Verify Privacy"}
-              </button>
-              {attestation && attestation.signing_address && (
-                <div className={`text-xs mt-1 text-center truncate ${
-                  isDark ? "text-[#2ecc71]/70" : "text-[#54ad95]/70"
-                }`} title={attestation.signing_address}>
-                  {attestation.signing_address.substring(0, 10)}...{attestation.signing_address.substring(attestation.signing_address.length - 6)}
-                </div>
-              )}
-              {isVerifying && (
-                <div className="flex justify-center mt-2">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleNewConversation}
-                className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                  isDark
-                    ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/20"
-                    : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#0088fb]/20"
-                } backdrop-blur-sm border`}
-              >
-                New Conversation
-              </button>
-
-              {apiKey || openRouterApiKey ? (
-                <button
-                  onClick={handleLogout}
-                  className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                    isDark
-                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-[#54ad95]/30"
-                      : "bg-red-500/20 hover:bg-red-500/30 text-red-700 border-[#0088fb]/30"
-                  } backdrop-blur-sm border`}
-                >
-                  Logout
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setShowApiKeyModal(true)
-                    setShowMobileMenu(false)
-                  }}
-                  className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
-                    isDark
-                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                  } backdrop-blur-sm border`}
-                >
-                  Login with API Key
-                </button>
-              )}
-            </div>
-          </LiquidGlassWrapper>
-        </>
-      )}
+      <MobileMenu
+        showMobileMenu={showMobileMenu}
+        setShowMobileMenu={setShowMobileMenu}
+        isDark={isDark}
+        mode={mode}
+        setMode={setMode}
+        setShowBranchPanel={setShowBranchPanel}
+        setShowSettings={setShowSettings}
+        selectedModel={selectedModel}
+        setShowModelSwitchModal={setShowModelSwitchModal}
+        setPendingModelSelection={setPendingModelSelection}
+        verifyAttestation={verifyAttestation}
+        isVerifying={isVerifying}
+        attestation={attestation}
+        handleNewConversation={handleNewConversation}
+        apiKey={apiKey}
+        openRouterApiKey={openRouterApiKey}
+        handleLogout={handleLogout}
+        setShowApiKeyModal={setShowApiKeyModal}
+        currentBranch={currentBranch}
+        messages={messages}
+        handlePinConversation={handlePinConversation}
+      />
 
       {/* Main Content Area */}
       <div
@@ -1878,526 +614,62 @@ Always maintain context from previous messages in the conversation.`;
         }}
       >
         {/* Settings Dropdown */}
-        <div className={`mb-4 transition-all duration-300 ${showSettings ? 'mb-12' : ''}`}>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-              isDark
-                ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
-                : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
-            } backdrop-blur-sm border text-sm font-medium`}
-          >
-            <SettingsIcon className="w-4 h-4" />
-            Settings
-            {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          
-          {showSettings && (
-            <LiquidGlassWrapper
-              className="settings-panel mt-2 rounded-xl max-h-[35vh] overflow-hidden"
-              isDark={isDark}
-            >
-              {/* Scrollable content wrapper */}
-              <div className="max-h-[35vh] overflow-y-auto p-4">
-                {/* Settings content - Authentication and Sync UI removed */}
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* API Key Settings */}
-                <div className="md:col-span-2">
-                  <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>API Keys</h4>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={() => {
-                        setShowApiKeyModal(true);
-                      }}
-                      className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                        isDark
-                          ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
-                          : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
-                      } backdrop-blur-sm border`}
-                    >
-                      <Key className="w-4 h-4" />
-                      {apiKey || openRouterApiKey ? "Update" : "Set"} API Keys
-                    </button>
-                  </div>
-                </div>
-
-                {/* Model Settings */}
-                <div className="md:col-span-2 pt-4 border-t border-gray-500/20">
-                  <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Model Settings</h4>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      Temperature: {temperature}
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.1"
-                      value={temperature}
-                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                      className="w-full"
-                    />
-                    <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                      Lower values = more focused, higher values = more creative
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                    Max Tokens: {maxTokens}
-                  </label>
-                  <input
-                    type="range"
-                    min="256"
-                    max="8192"
-                    step="256"
-                    value={maxTokens}
-                    onChange={(e) => setMaxTokens(parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                    Maximum length of the response
-                  </p>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      Add Timestamps to Messages (Your Local Time)
-                    </label>
-                    <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                      <input
-                        type="checkbox"
-                        id="toggle-timestamps"
-                        checked={enableTimestamps}
-                        onChange={() => {
-                          console.log("Toggling enableTimestamps from", enableTimestamps, "to", !enableTimestamps);
-                          setEnableTimestamps(!enableTimestamps);
-                        }}
-                        className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                      />
-                      <label
-                        htmlFor="toggle-timestamps"
-                        className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
-                          enableTimestamps
-                            ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
-                            : isDark ? "bg-gray-600" : "bg-gray-300"
-                        }`}
-                      ></label>
-                    </div>
-                  </div>
-                  
-                  {enableTimestamps && (
-                    <div className="mt-2 flex items-center justify-between">
-                      <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                        Show Timestamps in Messages
-                      </label>
-                      <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                        <input
-                          type="checkbox"
-                          id="toggle-show-timestamps"
-                          checked={showTimestamps}
-                          onChange={() => setShowTimestamps(!showTimestamps)}
-                          className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                        />
-                        <label
-                          htmlFor="toggle-show-timestamps"
-                          className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
-                            showTimestamps
-                              ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
-                              : isDark ? "bg-gray-600" : "bg-gray-300"
-                          }`}
-                        ></label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-500/20">
-                  <div className="flex items-center justify-between">
-                    <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                      Save Preferences to Device
-                    </label>
-                    <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                      <input
-                        type="checkbox"
-                        id="toggle-consent"
-                        checked={hasConsented === true}
-                        onChange={() => {
-                          const newConsent = hasConsented !== true;
-                          setHasConsented(newConsent);
-                          
-                          console.log("Consent preference updated:", newConsent);
-                        }}
-                        className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                      />
-                      <label
-                        htmlFor="toggle-consent"
-                        className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
-                          hasConsented
-                            ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
-                            : isDark ? "bg-gray-600" : "bg-gray-300"
-                        }`}
-                      ></label>
-                    </div>
-                  </div>
-                  <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                    {hasConsented
-                      ? "Your preferences will be saved to this device"
-                      : "Your preferences will only be used for this session"}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-500/20">
-                <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Export</h4>
-                <div className="flex items-center justify-between mb-3">
-                  <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                    Include system prompt in export
-                  </label>
-                  <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                    <input
-                      type="checkbox"
-                      id="toggle-export-system-prompt"
-                      checked={exportWithSystemPrompt}
-                      onChange={() => setExportWithSystemPrompt(!exportWithSystemPrompt)}
-                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                    />
-                    <label
-                      htmlFor="toggle-export-system-prompt"
-                      className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
-                        exportWithSystemPrompt
-                          ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
-                          : isDark ? "bg-gray-600" : "bg-gray-300"
-                      }`}
-                    ></label>
-                  </div>
-                </div>
-                <button
-                  onClick={handleExport}
-                  disabled={messages.length === 0}
-                  className={`w-full px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                    isDark
-                      ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
-                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
-                  } backdrop-blur-sm border disabled:opacity-50`}
-                >
-                  <Download className="w-4 h-4" />
-                  Export as Markdown
-                </button>
-                </div>
-                {/* No toggle buttons as requested */}
-                
-              </div>
-            </LiquidGlassWrapper>
-          )}
-        </div>
+        <SettingsPanel
+          showSettings={showSettings}
+          setShowSettings={setShowSettings}
+          isDark={isDark}
+          setShowApiKeyModal={setShowApiKeyModal}
+          apiKey={apiKey}
+          openRouterApiKey={openRouterApiKey}
+          temperature={temperature}
+          setTemperature={setTemperature}
+          maxTokens={maxTokens}
+          setMaxTokens={setMaxTokens}
+          enableTimestamps={enableTimestamps}
+          setEnableTimestamps={setEnableTimestamps}
+          showTimestamps={showTimestamps}
+          setShowTimestamps={setShowTimestamps}
+          hasConsented={hasConsented}
+          setHasConsented={setHasConsented}
+          exportWithSystemPrompt={exportWithSystemPrompt}
+          setExportWithSystemPrompt={setExportWithSystemPrompt}
+          handleExport={handleExport}
+          messages={messages}
+        />
         
         {/* One Bubble Chat Interface */}
-        <div className={`transition-all duration-300 ${showSettings ? 'h-[30vh] mt-6' : 'h-[41vh]'}`}>
-          <LiquidGlassWrapper
-            className="chat-box rounded-2xl p-4 lg:p-6 overflow-hidden flex flex-col min-h-0 w-full h-full items-center justify-center"
-            isDark={isDark}
-          >
-          
-          {isInResponseMode ? (
-            <div
-              className="flex-1 overflow-y-auto flex flex-col justify-between items-center min-h-0 w-full"
-              tabIndex={0} // Make div focusable
-              onKeyDown={(e) => { // Add keyboard handler directly to response div
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  console.log("Enter key pressed in response div");
-                  returnToInputState();
-                }
-              }}
-            >
-              {isLoading ? (
-                <div className="flex flex-col items-center gap-4">
-                  <div className={`jellyfish-loader ${isDark ? 'dark' : 'light'}`}>
-                    <div className="jellyfish">
-                      <div className="jellyfish-bell"></div>
-                      <div className="jellyfish-tentacles">
-                        <div className="tentacle"></div>
-                        <div className="tentacle"></div>
-                        <div className="tentacle"></div>
-                        <div className="tentacle"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleCancel}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-                      isDark
-                        ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30"
-                        : "bg-red-500/20 hover:bg-red-500/30 text-red-600 border-red-500/30"
-                    } backdrop-blur-sm border`}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div
-                  className="w-full flex flex-col items-center flex-1"
-                  onClick={() => {
-                    // Add click handler to entire response area
-                    // Double-click anywhere on the response to return to input mode
-                    console.log("Response area clicked");
-                  }}
-                  onDoubleClick={() => {
-                    console.log("Response area double-clicked");
-                    returnToInputState();
-                  }}
-                >
-                  <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh] text-center`}>
-                    {enableTimestamps && showTimestamps && messages.length > 0 && messages[messages.length - 1].timestamp && (
-                      <div className={`text-xs mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                        {new Date(messages[messages.length - 1].timestamp).toLocaleString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Explicitly use local time zone
-                          timeZoneName: 'short'
-                        })}
-                      </div>
-                    )}
-                    <ReactMarkdown
-                      components={{
-                        p: ({ node, ...props }: any) => <p className="mb-4 lg:mb-6 last:mb-0 text-base lg:text-xl leading-relaxed" {...props} />,
-                        ul: ({ node, ...props }: any) => <ul className="list-disc pl-6 mb-4 lg:mb-6 last:mb-0 text-base lg:text-xl" {...props} />,
-                        ol: ({ node, ...props }: any) => (
-                          <ol className="list-decimal pl-6 mb-4 lg:mb-6 last:mb-0 text-base lg:text-xl" {...props} />
-                        ),
-                        li: ({ node, ...props }: any) => <li className="mb-2 text-base lg:text-xl" {...props} />,
-                        a: ({ node, ...props }: any) => (
-                          <a
-                            className={`transition-colors duration-300 hover:underline ${
-                              isDark ? "text-[#03a9f4]" : "text-[#54ad95]"
-                            }`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            {...props}
-                          />
-                        ),
-                        code: ({ node, inline, className, children, ...props }: any) =>
-                          inline ? (
-                            <code
-                              className={`px-2 py-1 rounded text-sm transition-colors duration-500 ${
-                                isDark ? "bg-[#333333]/80" : "bg-[#f0f8ff]/80"
-                              }`}
-                              {...props}
-                            >
-                              {children}
-                            </code>
-                          ) : (
-                            <pre
-                              className={`p-4 rounded-lg my-3 overflow-x-auto transition-colors duration-500 ${
-                                isDark ? "bg-[#333333]/80" : "bg-[#f0f8ff]/80"
-                              }`}
-                            >
-                              <code className="text-sm" {...props}>
-                                {children}
-                              </code>
-                            </pre>
-                          ),
-                      }}
-                    >
-                      {currentResponse}
-                    </ReactMarkdown>
-                  </div>
-                  
-                  {/* Response Actions - positioned at bottom center */}
-                  <div className="mt-4 lg:mt-6 pt-4 border-t border-gray-500/20 flex justify-center gap-3">
-                    <button
-                      onClick={() => {
-                        console.log("New Message button clicked");
-                        returnToInputState();
-                        // Force focus on textarea after a delay
-                        setTimeout(() => {
-                          const textarea = document.getElementById('chat-input-textarea') as HTMLTextAreaElement;
-                          if (textarea) {
-                            textarea.focus();
-                            console.log("Textarea focused via getElementById");
-                          }
-                        }, 150);
-                      }}
-                      className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                        isDark
-                          ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71]"
-                          : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
-                      } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                    >
-                      New Message (or press Enter)
-                    </button>
-                    {messages.length > 0 && mode === "ephemeral" && (
-                      <button
-                        onClick={handlePinConversation}
-                        className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                          isDark
-                            ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4]"
-                            : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
-                        } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                      >
-                        📌 Save
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Input Mode */
-            <div className={`flex-1 flex flex-col min-h-0 items-center justify-evenly`}>
-              {/* Attachment preview - positioned at top center */}
-              {attachment && (
-                <div className="p-4 flex justify-center">
-                  <div className="p-2 bg-black/10 rounded-lg">
-                    <div className="relative inline-block">
-                      <img src={attachment.preview} alt="preview" className="h-24 w-24 object-cover rounded-md" />
-                      <button
-                        onClick={() => setAttachment(null)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 leading-none"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Main input area - centered position */}
-              <div className="flex-1 flex items-center justify-center px-4 mb-6">
-                <div className="w-full max-w-2xl text-center">
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={
-                      messages.length === 0
-                        ? ConversationStore.isRedPillModel(selectedModel)
-                          ? "Start a private conversation..."
-                          : "Ask me anything..."
-                        : "Reply..."
-                    }
-                    className={`w-full resize-none outline-none transition-all duration-500 ${
-                      isDark
-                        ? "bg-transparent text-white placeholder-gray-400"
-                        : "bg-transparent text-gray-900 placeholder-gray-600"
-                    } text-base lg:text-lg leading-relaxed text-center`}
-                    style={{ minHeight: '60px', maxHeight: '120px' }}
-                    rows={1}
-                    autoFocus
-                    id="chat-input-textarea"
-                  />
-                  
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                  />
-                </div>
-              </div>
-              
-              {/* Action buttons - moved down, positioned in the middle horizontally */}
-              <div className="px-4 flex justify-center mb-6">
-                <div className="flex items-center gap-2">
-                  {ConversationStore.getAvailableModels().find(m => m.id === selectedModel)?.supportsAttachments && (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Attach an image (PNG, JPG, etc.)"
-                      className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
-                        isDark
-                          ? "bg-white/10 hover:bg-white/20 text-white"
-                          : "bg-black/10 hover:bg-black/20 text-black"
-                      }`}
-                    >
-                      <Paperclip className="w-4 h-4 lg:w-5 lg:h-5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={sendMessage}
-                    disabled={isLoading || (!input.trim() && !attachment)}
-                    className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
-                      isDark
-                        ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                        : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                    } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
-                  >
-                    <Send className="w-4 h-4 lg:w-5 lg:h-5" />
-                    <span className="hidden lg:inline ml-2 text-sm font-medium">Send</span>
-                  </button>
-                </div>
-              </div>
-              
-              {/* Input hints and controls - moved down to the very bottom, centered */}
-              <div className="px-4 pb-1 flex justify-center mt-4">
-                <div className="w-full max-w-2xl flex items-center justify-center gap-4 text-xs lg:text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className={`${isDark ? 'text-gray-300' : 'text-gray-400'}`}>
-                      ⏎ to send • ⇧⏎ for new line
-                    </span>
-                    <button
-                      onClick={() => {
-                        // Generate context preview content if not already edited
-                        if (!isContextEdited) {
-                          const previewContent = generateContextPreview();
-                          setContextPreviewContent(previewContent);
-                        }
-                        setShowContextPreview(!showContextPreview);
-                      }}
-                      className={`px-2 py-1 text-xs rounded transition-all duration-300 flex items-center gap-1 ${
-                        isDark
-                          ? `${showContextPreview ? "bg-[#2ecc71]/30" : "bg-[#333333]/60"} hover:bg-[#444444]/80 text-[#f0f8ff]`
-                          : `${showContextPreview ? "bg-[#54ad95]/20" : "bg-[#f0f8ff]/60"} hover:bg-[#f0f8ff]/80 text-[#00171c]`
-                      } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                    >
-                      <Eye className="w-3 h-3" />
-                      {showContextPreview ? "Hide Context" : "Show Context"}
-                    </button>
-                  </div>
-                  {messages.length > 0 && (
-                    <button
-                      onClick={handleNewConversation}
-                      className={`px-2 py-1 text-xs rounded transition-all duration-300 ${
-                        isDark
-                          ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff]"
-                          : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c]"
-                      } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              {/* Context Preview */}
-              <ContextPreview
-                isOpen={showContextPreview}
-                content={contextPreviewContent}
-                isDark={isDark}
-                onContentChange={(content) => {
-                  setContextPreviewContent(content);
-                  setIsContextEdited(true);
-                }}
-                onClose={() => setShowContextPreview(false)}
-                onReset={() => {
-                  const previewContent = generateContextPreview();
-                  setContextPreviewContent(previewContent);
-                  setIsContextEdited(false);
-                }}
-              />
-            </div>
-          )}
-          </LiquidGlassWrapper>
-        </div>
+        <ChatInterface
+          showSettings={showSettings}
+          isDark={isDark}
+          isInResponseMode={isInResponseMode}
+          isLoading={isLoading}
+          currentResponse={currentResponse}
+          handleCancel={handleCancel}
+          returnToInputState={returnToInputState}
+          enableTimestamps={enableTimestamps}
+          showTimestamps={showTimestamps}
+          messages={messages}
+          attachment={attachment}
+          setAttachment={setAttachment}
+          input={input}
+          setInput={setInput}
+          handleKeyDown={handleKeyDown}
+          selectedModel={selectedModel}
+          textareaRef={textareaRef}
+          fileInputRef={fileInputRef}
+          handleFileSelect={handleFileSelect}
+          sendMessage={sendMessage}
+          showContextPreview={showContextPreview}
+          setShowContextPreview={setShowContextPreview}
+          contextPreviewContent={contextPreviewContent}
+          setContextPreviewContent={setContextPreviewContent}
+          isContextEdited={isContextEdited}
+          setIsContextEdited={setIsContextEdited}
+          generateContextPreview={generateContextPreviewWrapper}
+          handleNewConversation={handleNewConversation}
+          mode={mode}
+          handlePinConversation={handlePinConversation}
+        />
 
         {/* Status bar */}
         <div className={`text-center mt-4 text-xs lg:text-sm ${
