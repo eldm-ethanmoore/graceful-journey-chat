@@ -71,7 +71,11 @@ export const ChatInterface = ({
   handlePinConversation
 }: ChatInterfaceProps) => {
   return (
-    <div className={`transition-all duration-300 ${showSettings ? 'h-[30vh] mt-6' : 'h-[41vh]'}`}>
+    <div className={`transition-all duration-300 ${
+      showSettings
+        ? (showContextPreview ? 'h-[39vh] mt-6' : 'h-[30vh] mt-6')
+        : (showContextPreview ? 'h-[53.3vh]' : 'h-[41vh]')
+    }`}>
       <LiquidGlassWrapper
         className="chat-box rounded-2xl p-4 lg:p-6 overflow-hidden flex flex-col min-h-0 w-full h-full items-center justify-center"
         isDark={isDark}
