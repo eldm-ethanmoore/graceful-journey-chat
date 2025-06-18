@@ -36,6 +36,14 @@ interface ChatInterfaceProps {
   handleNewConversation: () => void
   mode: "ephemeral" | "structured"
   handlePinConversation: () => void
+  onCreateBind?: (userPrompt: any, aiResponse: string) => void
+  onLockBind?: (bindId: string) => void
+  currentBindId?: string | null
+  isBindLocked?: boolean
+  currentBranch?: any | null
+  onUpdateCurrentResponse?: (response: string) => void
+  currentIdea?: any | null
+  branchBinds?: any[]
 }
 
 export const ChatInterface = ({
@@ -68,8 +76,41 @@ export const ChatInterface = ({
   generateContextPreview,
   handleNewConversation,
   mode,
-  handlePinConversation
+  handlePinConversation,
+  onCreateBind,
+  onLockBind,
+  currentBindId,
+  isBindLocked,
+  currentBranch,
+  onUpdateCurrentResponse,
+  currentIdea,
+  branchBinds
 }: ChatInterfaceProps) => {
+  const [showQA, setShowQA] = useState(false);
+
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  // Helper function to get the latest Q/A from binds
+  const getLatestQA = () => {
+    if (!branchBinds || branchBinds.length === 0) return null;
+    
+    const latestBind = branchBinds[branchBinds.length - 1];
+    const userContent = typeof latestBind.userPrompt.content === 'string'
+      ? latestBind.userPrompt.content
+      : '[Complex content]';
+    const aiContent = typeof latestBind.aiResponse.content === 'string'
+      ? latestBind.aiResponse.content
+      : '[Complex content]';
+    
+    return {
+      question: truncateText(userContent, 50),
+      answer: truncateText(aiContent, 50)
+    };
+  };
   return (
     <div className={`transition-all duration-300 ${
       showSettings
@@ -80,6 +121,67 @@ export const ChatInterface = ({
         className="chat-box rounded-2xl p-4 lg:p-6 overflow-hidden flex flex-col min-h-0 w-full h-full items-center justify-center"
         isDark={isDark}
       >
+        {/* Enhanced Branch Context Indicator - Inside chatbox at top with spacing */}
+        {mode === "structured" && currentBranch && (
+          <div
+            className={`w-full mt-1 mb-24 p-3 rounded-xl cursor-pointer transition-all duration-500 ${
+              isDark ? "bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/15" : "bg-indigo-500/10 border-indigo-500/20 hover:bg-indigo-500/15"
+            } border backdrop-blur-sm`}
+            onMouseEnter={() => setShowQA(true)}
+            onMouseLeave={() => setShowQA(false)}
+            onClick={() => setShowQA(!showQA)}
+          >
+            <div className={`text-xs font-medium ${
+              isDark ? "text-purple-300" : "text-indigo-600"
+            }`}>
+              {/* Idea and Branch Info */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span>💡</span>
+                  <span className="font-bold">
+                    {currentIdea ? truncateText(currentIdea.name, 25) : 'Loading...'}
+                  </span>
+                  <span className={`${isDark ? "text-purple-400" : "text-indigo-500"}`}>→</span>
+                  <span>🌿</span>
+                  <span className="font-bold">
+                    {truncateText(currentBranch.name, 20)}
+                  </span>
+                </div>
+                <div className={`text-xs ${isDark ? "text-purple-400" : "text-indigo-500"}`}>
+                  {branchBinds ? branchBinds.length : 0} binds • {Math.floor(messages.length / 2)} exchanges
+                </div>
+              </div>
+              
+              {/* Latest Q/A Preview with Bind ID - Show on hover/tap with smooth animation */}
+              <div className={`overflow-hidden transition-all duration-700 ease-in-out ${
+                showQA ? 'max-h-32 opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
+              }`}>
+                {(() => {
+                  const latestQA = getLatestQA();
+                  const latestBind = branchBinds && branchBinds.length > 0 ? branchBinds[branchBinds.length - 1] : null;
+                  return latestQA && latestBind ? (
+                    <div className={`text-xs ${isDark ? "text-purple-400" : "text-indigo-500"} bg-black/10 rounded-lg p-2 transform transition-transform duration-700 ease-in-out ${
+                      showQA ? 'translate-y-0' : '-translate-y-2'
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">Latest Bind:</span>
+                        <span className="text-xs opacity-75">ID: {truncateText(latestBind.id, 12)}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-400">Q:</span>
+                        <span className="flex-1">{latestQA.question}</span>
+                      </div>
+                      <div className="flex items-start gap-2 mt-1">
+                        <span className="text-green-400">A:</span>
+                        <span className="flex-1">{latestQA.answer}</span>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
       
       {isInResponseMode ? (
         <div
@@ -87,8 +189,15 @@ export const ChatInterface = ({
           tabIndex={0} // Make div focusable
           onKeyDown={(e) => { // Add keyboard handler directly to response div
             if (e.key === 'Enter' && !e.shiftKey) {
-              console.log("Enter key pressed in response div");
-              returnToInputState();
+              // Check if user is interacting with buttons
+              const isClickingButton = (e.target as HTMLElement)?.closest('button');
+              if (!isClickingButton) {
+                console.log("Enter key pressed in response div");
+                // Add delay to allow button interactions to complete
+                setTimeout(() => {
+                  returnToInputState();
+                }, 200);
+              }
             }
           }}
         >
@@ -118,7 +227,7 @@ export const ChatInterface = ({
             </div>
           ) : (
             <div
-              className="w-full flex flex-col items-center flex-1"
+              className="w-full flex flex-col items-center flex-1 relative"
               onClick={() => {
                 // Add click handler to entire response area
                 // Double-click anywhere on the response to return to input mode
@@ -129,7 +238,7 @@ export const ChatInterface = ({
                 returnToInputState();
               }}
             >
-              <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh] text-center`}>
+              <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh] text-center pt-8 pb-48 px-4`}>
                 {enableTimestamps && showTimestamps && messages.length > 0 && messages[messages.length - 1].timestamp && (
                   <div className={`text-xs mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                     {new Date(messages[messages.length - 1].timestamp).toLocaleString(undefined, {
@@ -188,43 +297,6 @@ export const ChatInterface = ({
                 >
                   {currentResponse}
                 </ReactMarkdown>
-              </div>
-              
-              {/* Response Actions - positioned at bottom center */}
-              <div className="mt-4 lg:mt-6 pt-4 border-t border-gray-500/20 flex justify-center gap-3">
-                <button
-                  onClick={() => {
-                    console.log("New Message button clicked");
-                    returnToInputState();
-                    // Force focus on textarea after a delay
-                    setTimeout(() => {
-                      const textarea = document.getElementById('chat-input-textarea') as HTMLTextAreaElement;
-                      if (textarea) {
-                        textarea.focus();
-                        console.log("Textarea focused via getElementById");
-                      }
-                    }, 150);
-                  }}
-                  className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                    isDark
-                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71]"
-                      : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
-                  } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                >
-                  New Message (or press Enter)
-                </button>
-                {messages.length > 0 && mode === "ephemeral" && (
-                  <button
-                    onClick={handlePinConversation}
-                    className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
-                      isDark
-                        ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4]"
-                        : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
-                    } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                  >
-                    📌 Save
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -365,6 +437,34 @@ export const ChatInterface = ({
             onContentChange={(content) => {
               setContextPreviewContent(content);
               setIsContextEdited(true);
+              // If we're in response mode, also update the current response
+              // This makes context edits equivalent to response edits
+              if (isInResponseMode && currentResponse) {
+                // Parse the edited context to extract just the AI response part
+                // The context typically contains the conversation history + current response
+                // We need to extract just the response portion
+                const lines = content.split('\n');
+                let responseStartIndex = -1;
+                
+                // Look for the last "Assistant:" or similar marker
+                for (let i = lines.length - 1; i >= 0; i--) {
+                  if (lines[i].includes('Assistant:') || lines[i].includes('**Assistant:**')) {
+                    responseStartIndex = i + 1;
+                    break;
+                  }
+                }
+                
+                if (responseStartIndex !== -1 && responseStartIndex < lines.length) {
+                  // Extract everything after the last Assistant marker
+                  const responseLines = lines.slice(responseStartIndex);
+                  const extractedResponse = responseLines.join('\n').trim();
+                  
+                  // Only update if we found a meaningful response
+                  if (extractedResponse && extractedResponse !== currentResponse && onUpdateCurrentResponse) {
+                    onUpdateCurrentResponse(extractedResponse);
+                  }
+                }
+              }
             }}
             onClose={() => setShowContextPreview(false)}
             onReset={() => {

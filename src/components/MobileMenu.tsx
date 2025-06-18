@@ -1,13 +1,18 @@
-import { X, GitBranch, SettingsIcon } from "lucide-react"
+import { X, GitBranch, SettingsIcon, Sun, Moon } from "lucide-react"
 import { LiquidGlassWrapper } from "./LiquidGlassWrapper"
 import { ConversationStore } from "../conversationStore"
+import { CompactAuthButton } from "./CompactAuthButton"
+import { SendDataButton } from "./SendDataButton"
+import { ReceiveDataButton } from "./ReceiveDataButton"
 
 interface MobileMenuProps {
   showMobileMenu: boolean
   setShowMobileMenu: (show: boolean) => void
   isDark: boolean
+  setIsDark: (isDark: boolean) => void
+  hasConsented: boolean | null
   mode: "ephemeral" | "structured"
-  setMode: (mode: "ephemeral" | "structured") => void
+  setMode: (mode: "ephemeral" | "structured") => void | Promise<void>
   setShowBranchPanel: (show: boolean) => void
   setShowSettings: (show: boolean) => void
   selectedModel: string
@@ -24,12 +29,21 @@ interface MobileMenuProps {
   currentBranch: any
   messages: any[]
   handlePinConversation: () => void
+  isSending: boolean
+  isReceiving: boolean
+  pipingSyncManager: any
+  syncWarningAcknowledged: boolean
+  setPendingSendAction: (pending: boolean) => void
+  setShowSyncWarning: (show: boolean) => void
+  setPendingReceiveAction: (action: string | null) => void
 }
 
 export const MobileMenu = ({
   showMobileMenu,
   setShowMobileMenu,
   isDark,
+  setIsDark,
+  hasConsented,
   mode,
   setMode,
   setShowBranchPanel,
@@ -47,7 +61,14 @@ export const MobileMenu = ({
   setShowApiKeyModal,
   currentBranch,
   messages,
-  handlePinConversation
+  handlePinConversation,
+  isSending,
+  isReceiving,
+  pipingSyncManager,
+  syncWarningAcknowledged,
+  setPendingSendAction,
+  setShowSyncWarning,
+  setPendingReceiveAction
 }: MobileMenuProps) => {
   if (!showMobileMenu) return null
 
@@ -72,6 +93,89 @@ export const MobileMenu = ({
         </div>
         
         <div className="space-y-3">
+          {/* Theme Toggle */}
+          <div className="mb-3">
+            <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+              Appearance
+            </h3>
+            <button
+              onClick={() => {
+                const newTheme = !isDark;
+                setIsDark(newTheme);
+                
+                // Theme change is always applied for current session
+                // but only saved if user has consented
+                if (hasConsented) {
+                  console.log("Saving theme preference (mobile menu):", newTheme);
+                }
+              }}
+              className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
+                isDark
+                  ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71] border-[#2ecc71]/30"
+                  : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95] border-[#54ad95]/30"
+              } backdrop-blur-sm border flex items-center justify-center gap-2`}
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? "Light Mode" : "Dark Mode"}
+            </button>
+          </div>
+
+          {/* Wallet Connect */}
+          <div className="mb-3">
+            <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+              Wallet Connection
+            </h3>
+            <div className="flex justify-center">
+              <CompactAuthButton isDark={isDark} />
+            </div>
+          </div>
+
+          {/* Sync Buttons */}
+          <div className="mb-3">
+            <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+              Data Sync
+            </h3>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SendDataButton
+                  isDark={isDark}
+                  isSending={isSending}
+                  syncCode={isSending ? pipingSyncManager.getCurrentSendPath() : undefined}
+                  onClick={() => {
+                    if (!isSending) {
+                      if (syncWarningAcknowledged) {
+                        pipingSyncManager.startSending();
+                      } else {
+                        setPendingSendAction(true);
+                        setShowSyncWarning(true);
+                      }
+                    } else {
+                      pipingSyncManager.stopSending();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <ReceiveDataButton
+                  isDark={isDark}
+                  isReceiving={isReceiving}
+                  onClick={(path) => {
+                    if (!isReceiving && path) {
+                      if (syncWarningAcknowledged) {
+                        pipingSyncManager.startReceiving(path);
+                      } else {
+                        setPendingReceiveAction(path);
+                        setShowSyncWarning(true);
+                      }
+                    } else if (isReceiving) {
+                      pipingSyncManager.stopReceiving();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Branches Button - Only show in structured mode */}
           {mode === "structured" && (
             <button

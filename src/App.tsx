@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import ReactMarkdown from "react-markdown"
-import { BranchPanel } from "./BranchPanel"
+import { TreeNavigationPanel } from "./components/TreeNavigationPanel"
 import { ConversationStore } from "./conversationStore"
-import type { Branch, Message as StoredMessage } from "./conversationStore"
+import type { Branch, Message as StoredMessage, Bind } from "./conversationStore"
 import { Sun, Moon, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye, Paperclip, Download } from "lucide-react"
 import { RainbowAuthUI } from "./components/RainbowAuthUI"
 import { CompactAuthButton } from "./components/CompactAuthButton"
@@ -54,7 +54,11 @@ function App() {
   const [attestation, setAttestation] = useState<AttestationData | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null)
+  const [currentIdea, setCurrentIdea] = useState<any | null>(null)
+  const [branchBinds, setBranchBinds] = useState<any[]>([])
   const [mode, setMode] = useState<"ephemeral" | "structured">("ephemeral")
+  const [currentBindId, setCurrentBindId] = useState<string | null>(null)
+  const [isBindLocked, setIsBindLocked] = useState(false)
   const [isDark, setIsDark] = useState(true)
   const [isInResponseMode, setIsInResponseMode] = useState(false)
   const [currentResponse, setCurrentResponse] = useState("")
@@ -80,6 +84,12 @@ function App() {
   
   // Settings state
   const [showSettings, setShowSettings] = useState(false)
+  const [showEditResponseModal, setShowEditResponseModal] = useState(false)
+  const [editingResponse, setEditingResponse] = useState("")
+  const [showRetroactiveBindModal, setShowRetroactiveBindModal] = useState(false)
+  const [selectedMessagePairs, setSelectedMessagePairs] = useState<{userMsg: Message, aiMsg: Message}[]>([])
+  const [availableMessagePairs, setAvailableMessagePairs] = useState<{userMsg: Message, aiMsg: Message, index: number}[]>([])
+  const [hasCreatedBindForCurrentResponse, setHasCreatedBindForCurrentResponse] = useState(false)
   // Always show these features - no toggles
   const showAuthUI = true
   const [temperature, setTemperature] = useState(DEFAULT_SETTINGS.temperature)
@@ -117,7 +127,8 @@ function App() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL)
 
   useEffect(() => {
-    loadOrCreateDefaultBranch()
+    // Only load existing ideas/branches on startup, don't create new ones
+    loadExistingData()
   }, [])
 
   // Load API key on mount
@@ -232,15 +243,193 @@ function App() {
     };
   }, [pipingSyncManager]);
 
-  const loadOrCreateDefaultBranch = async () => {
-    const branches = await ConversationStore.getAllBranches()
-    if (branches.length === 0) {
-      const defaultBranch = await ConversationStore.createBranch("Main", [])
-      setCurrentBranch(defaultBranch)
+  // Filter available message pairs for retroactive bind creation
+  useEffect(() => {
+    const filterAvailablePairs = async () => {
+      if (!showRetroactiveBindModal || !currentBranch) {
+        setAvailableMessagePairs([]);
+        return;
+      }
+
+      // Get all message pairs
+      const allPairs = messages.reduce((pairs: {userMsg: Message, aiMsg: Message, index: number}[], msg, index) => {
+        if (msg.role === 'user' && messages[index + 1]?.role === 'assistant') {
+          pairs.push({
+            userMsg: msg,
+            aiMsg: messages[index + 1],
+            index: Math.floor(index / 2)
+          });
+        }
+        return pairs;
+      }, []);
+
+      // Filter out current active response (if in response mode and this is the last pair)
+      let filteredPairs = allPairs;
+      if (isInResponseMode && allPairs.length > 0) {
+        filteredPairs = allPairs.slice(0, -1); // Remove last pair if in response mode
+      }
+
+      // Filter out pairs that already exist as binds
+      try {
+        const existingBinds = await ConversationStore.getBranchBinds(currentBranch.id);
+        const availablePairs = filteredPairs.filter(pair => {
+          const userContent = typeof pair.userMsg.content === 'string' ? pair.userMsg.content : JSON.stringify(pair.userMsg.content);
+          const aiContent = typeof pair.aiMsg.content === 'string' ? pair.aiMsg.content : JSON.stringify(pair.aiMsg.content);
+          
+          const pairExists = existingBinds.some(bind => {
+            const bindUserContent = typeof bind.userPrompt.content === 'string' ? bind.userPrompt.content : JSON.stringify(bind.userPrompt.content);
+            const bindAiContent = typeof bind.aiResponse.content === 'string' ? bind.aiResponse.content : JSON.stringify(bind.aiResponse.content);
+            
+            return userContent === bindUserContent && aiContent === bindAiContent;
+          });
+          
+          return !pairExists; // Include only pairs that don't already exist as binds
+        });
+
+        setAvailableMessagePairs(availablePairs);
+      } catch (error) {
+        console.error("Error filtering available pairs:", error);
+        setAvailableMessagePairs(filteredPairs); // Fallback to basic filtering
+      }
+    };
+
+    filterAvailablePairs();
+  }, [showRetroactiveBindModal, messages, currentBranch, isInResponseMode]);
+
+  const loadExistingData = async () => {
+    const ideas = await ConversationStore.getAllIdeas()
+    if (ideas.length > 0) {
+      // Get the most recent idea and its latest branch
+      const latestIdea = ideas.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
+      setCurrentIdea(latestIdea)
+      const ideaBranches = await ConversationStore.getIdeaBranches(latestIdea.id)
+      
+      if (ideaBranches.length > 0) {
+        const latestBranch = ideaBranches.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+        setCurrentBranch(latestBranch)
+        
+        // Load branch-specific conversation context from binds
+        try {
+          const branchBinds = await ConversationStore.getBranchBinds(latestBranch.id)
+          setBranchBinds(branchBinds)
+          
+          if (branchBinds.length > 0) {
+            // Sort binds by creation date to maintain conversation order
+            const sortedBinds = branchBinds.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+            
+            // Convert binds to messages for the chat interface
+            const messagesFromBinds = sortedBinds.flatMap(bind => [bind.userPrompt, bind.aiResponse])
+            setMessages(messagesFromBinds)
+            setMode("structured") // Set to structured mode if we have existing data
+          } else {
+            // Fallback to branch.messages if no binds exist (backward compatibility)
+            if (latestBranch.messages) {
+              setMessages(latestBranch.messages)
+              setMode("structured")
+            } else {
+              setMessages([])
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load branch binds:", error)
+          setBranchBinds([])
+          
+          // Fallback to branch.messages on error
+          if (latestBranch.messages) {
+            setMessages(latestBranch.messages)
+            setMode("structured")
+          } else {
+            setMessages([])
+          }
+        }
+      }
+    }
+    // If no ideas exist, stay in ephemeral mode and don't prompt
+  }
+
+  const loadOrCreateDefaultBranch = async (): Promise<boolean> => {
+    const ideas = await ConversationStore.getAllIdeas()
+    if (ideas.length === 0) {
+      // Prompt user to name their first idea
+      const ideaName = prompt("Welcome to Structured Mode! What would you like to name your first idea?", "My First Idea")
+      
+      if (ideaName && ideaName.trim()) {
+        // Create idea with user-provided name
+        const defaultIdea = await ConversationStore.createIdea(ideaName.trim(), "Your first conversation space")
+        setCurrentIdea(defaultIdea)
+        const ideaBranches = await ConversationStore.getIdeaBranches(defaultIdea.id)
+        if (ideaBranches.length > 0) {
+          setCurrentBranch(ideaBranches[0])
+          setMessages([])
+          setBranchBinds([])
+        }
+        return true
+      } else {
+        // User cancelled or provided empty name, stay in ephemeral mode
+        console.log("User cancelled idea creation, staying in ephemeral mode")
+        return false
+      }
     } else {
-      const latestBranch = branches.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
-      setCurrentBranch(latestBranch)
-      setMessages(latestBranch.messages)
+      // Get the most recent idea and its latest branch
+      const latestIdea = ideas.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
+      setCurrentIdea(latestIdea)
+      const ideaBranches = await ConversationStore.getIdeaBranches(latestIdea.id)
+      
+      if (ideaBranches.length > 0) {
+        const latestBranch = ideaBranches.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+        setCurrentBranch(latestBranch)
+        
+        // Load branch-specific conversation context from binds
+        try {
+          const branchBinds = await ConversationStore.getBranchBinds(latestBranch.id)
+          setBranchBinds(branchBinds)
+          
+          if (branchBinds.length > 0) {
+            // Sort binds by creation date to maintain conversation order
+            const sortedBinds = branchBinds.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+            
+            // Convert binds to messages for the chat interface
+            const messagesFromBinds = sortedBinds.flatMap(bind => [bind.userPrompt, bind.aiResponse])
+            setMessages(messagesFromBinds)
+          } else {
+            // Fallback to branch.messages if no binds exist (backward compatibility)
+            if (latestBranch.messages) {
+              setMessages(latestBranch.messages)
+            } else {
+              setMessages([])
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load branch binds:", error)
+          setBranchBinds([])
+          
+          // Fallback to branch.messages on error
+          if (latestBranch.messages) {
+            setMessages(latestBranch.messages)
+          } else {
+            setMessages([])
+          }
+        }
+      } else {
+        // Create a main branch for this idea if none exists
+        const mainBranch = await ConversationStore.createBranch("Main", [], latestIdea.id)
+        setCurrentBranch(mainBranch)
+        setMessages([])
+        setBranchBinds([])
+      }
+    }
+    return true
+  }
+
+  const handleModeSwitch = async (newMode: "ephemeral" | "structured") => {
+    if (newMode === "structured") {
+      const success = await loadOrCreateDefaultBranch()
+      if (success) {
+        setMode("structured")
+      }
+      // If not successful (user cancelled), stay in current mode
+    } else {
+      setMode(newMode)
     }
   }
 
@@ -330,6 +519,9 @@ function App() {
     // First clear the response
     setCurrentResponse("")
     
+    // Reset bind creation flag for new response
+    setHasCreatedBindForCurrentResponse(false)
+    
     // Then switch mode and clear input
     setIsInResponseMode(false)
     
@@ -373,11 +565,33 @@ function App() {
     }
   }
 
-  const handleBranchSelect = async (branch: Branch) =>
+  const handleBranchSelect = async (branch: Branch) => {
+    // Load the idea for this branch
+    const idea = await ConversationStore.getIdea(branch.ideaId);
+    setCurrentIdea(idea);
+    
+    // Load the binds for this branch
+    const branchBinds = await ConversationStore.getBranchBinds(branch.id);
+    setBranchBinds(branchBinds);
+    
+    // Call the original handler
     handlers.handleBranchSelect(branch, setCurrentBranch, setMessages, setMode, returnToInputState);
+  };
 
-  const handleCreateBranch = async (name: string) =>
-    handlers.handleCreateBranch(name, messages, currentBranch, setCurrentBranch, setMode);
+  const handleCreateIdea = async (name: string) => {
+    try {
+      const newIdea = await ConversationStore.createIdea(name, "New conversation space")
+      const ideaBranches = await ConversationStore.getIdeaBranches(newIdea.id)
+      if (ideaBranches.length > 0) {
+        setCurrentBranch(ideaBranches[0])
+        setMode("structured")
+        setMessages([])
+      }
+    } catch (error) {
+      console.error("Failed to create idea:", error)
+      throw error
+    }
+  }
 
   const handleNewConversation = () =>
     handlers.handleNewConversation(
@@ -388,6 +602,34 @@ function App() {
 
   const handlePinConversation = async () =>
     handlers.handlePinConversation(messages, setCurrentBranch, setMode);
+
+  const handleCreateBind = async (userPrompt: Message, aiResponse: string) => {
+    if (!currentBranch) return;
+    
+    const aiMessage: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: "assistant",
+      content: aiResponse,
+      timestamp: new Date()
+    };
+
+    try {
+      const bind = await ConversationStore.createBind(userPrompt, aiMessage, currentBranch.id);
+      setCurrentBindId(bind.id);
+      setIsBindLocked(false);
+    } catch (error) {
+      console.error("Failed to create bind:", error);
+    }
+  };
+
+  const handleLockBind = async (bindId: string) => {
+    try {
+      await ConversationStore.lockBind(bindId);
+      setIsBindLocked(true);
+    } catch (error) {
+      console.error("Failed to lock bind:", error);
+    }
+  };
   
   const handleSaveApiKeys = (keys: { redpill: string; openrouter: string }) =>
     handlers.handleSaveApiKeys(keys, setApiKey, setOpenRouterApiKey, setShowApiKeyModal);
@@ -415,11 +657,18 @@ function App() {
       // This prevents interference with textarea input
       const isInFormElement = e.target instanceof HTMLTextAreaElement ||
                              e.target instanceof HTMLInputElement ||
-                             e.target instanceof HTMLSelectElement;
+                             e.target instanceof HTMLSelectElement ||
+                             e.target instanceof HTMLButtonElement; // Also exclude buttons
                              
-      if (e.key === 'Enter' && !e.shiftKey && isInResponseMode && !isInFormElement) {
-        console.log("Enter key pressed globally while in response mode")
-        returnToInputState()
+      // Don't handle Enter if user is interacting with response buttons
+      const isClickingResponseButton = (e.target as HTMLElement)?.closest('.response-actions');
+                             
+      if (e.key === 'Enter' && !e.shiftKey && isInResponseMode && !isInFormElement && !isClickingResponseButton) {
+        // Add a small delay to allow button clicks to process first
+        setTimeout(() => {
+          console.log("Enter key pressed globally while in response mode")
+          returnToInputState()
+        }, 100)
       }
     }
     
@@ -534,15 +783,22 @@ function App() {
         />
       </div>
 
-      {/* Branch Panel */}
-      <BranchPanel
+      {/* Tree Navigation Panel */}
+      <TreeNavigationPanel
         currentBranch={currentBranch}
         onBranchSelect={handleBranchSelect}
-        onCreateBranch={handleCreateBranch}
-        messages={messages}
+        onCreateBranch={handleCreateIdea}
         isDark={isDark}
-        expandedView={showBranchPanel && mode === "structured"}
+        expandedView={showBranchPanel}
         onClose={() => setShowBranchPanel(false)}
+        mode={mode}
+        setMode={handleModeSwitch}
+        apiKey={apiKey}
+        openRouterApiKey={openRouterApiKey}
+        handleLogout={handleLogout}
+        setShowApiKeyModal={setShowApiKeyModal}
+        handlePinConversation={handlePinConversation}
+        messages={messages}
       />
 
       {/* Header */}
@@ -551,7 +807,7 @@ function App() {
         setIsDark={setIsDark}
         hasConsented={hasConsented}
         mode={mode}
-        setMode={setMode}
+        setMode={handleModeSwitch}
         setShowBranchPanel={setShowBranchPanel}
         setShowMobileMenu={setShowMobileMenu}
         currentBranch={currentBranch}
@@ -582,8 +838,10 @@ function App() {
         showMobileMenu={showMobileMenu}
         setShowMobileMenu={setShowMobileMenu}
         isDark={isDark}
+        setIsDark={setIsDark}
+        hasConsented={hasConsented}
         mode={mode}
-        setMode={setMode}
+        setMode={handleModeSwitch}
         setShowBranchPanel={setShowBranchPanel}
         setShowSettings={setShowSettings}
         selectedModel={selectedModel}
@@ -600,6 +858,13 @@ function App() {
         currentBranch={currentBranch}
         messages={messages}
         handlePinConversation={handlePinConversation}
+        isSending={isSending}
+        isReceiving={isReceiving}
+        pipingSyncManager={pipingSyncManager}
+        syncWarningAcknowledged={syncWarningAcknowledged}
+        setPendingSendAction={setPendingSendAction}
+        setShowSyncWarning={setShowSyncWarning}
+        setPendingReceiveAction={setPendingReceiveAction}
       />
 
       {/* Main Content Area */}
@@ -637,6 +902,131 @@ function App() {
           messages={messages}
         />
         
+        {/* Persistent Action Buttons - Top level, next to settings */}
+        {!isInResponseMode && !isLoading && messages.length > 0 && mode === "structured" && (
+          <div className="mb-6 flex justify-center gap-3 flex-wrap">
+            <button
+              onClick={async () => {
+                const branchName = prompt("Enter name for new branch:");
+                if (branchName && branchName.trim() && currentBranch) {
+                  try {
+                    // Create a new branch from current conversation state within the same idea
+                    const newBranch = await ConversationStore.createBranch(branchName.trim(), messages, currentBranch.ideaId, currentBranch.id);
+                    setCurrentBranch(newBranch);
+                    setMode("structured");
+                  } catch (error) {
+                    console.error("Failed to create branch:", error);
+                    alert("Failed to create branch. Please try again.");
+                  }
+                }
+              }}
+              className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                isDark
+                  ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-300"
+                  : "bg-orange-500/20 hover:bg-orange-500/30 text-orange-600"
+              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+            >
+              🌿 Create Branch
+            </button>
+
+            <button
+              onClick={() => {
+                setShowRetroactiveBindModal(true);
+              }}
+              className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                isDark
+                  ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300"
+                  : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-600"
+              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+            >
+              📚 Create Binds from History
+            </button>
+          </div>
+        )}
+        
+        {/* Response Action Buttons - Below Settings */}
+        {isInResponseMode && !isLoading && (
+          <div className="mb-4 flex justify-center gap-3 flex-wrap">
+            {mode === "structured" && !isBindLocked && (
+              <button
+                onClick={() => {
+                  setEditingResponse(currentResponse);
+                  setShowEditResponseModal(true);
+                }}
+                className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                  isDark
+                    ? "bg-yellow-500/30 hover:bg-yellow-500/40 text-yellow-300"
+                    : "bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-600"
+                } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              >
+                ✏️ Edit Response
+              </button>
+            )}
+
+            {mode === "structured" && currentBranch && messages.length > 0 && !hasCreatedBindForCurrentResponse && (
+              <button
+                onClick={async () => {
+                  // Get the last user message and create a bind with current response
+                  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+                  if (lastUserMessage && currentResponse.trim()) {
+                    await handleCreateBind(lastUserMessage, currentResponse);
+                    setHasCreatedBindForCurrentResponse(true);
+                    
+                    // Refresh the branch binds to show the new bind
+                    if (currentBranch) {
+                      const updatedBinds = await ConversationStore.getBranchBinds(currentBranch.id);
+                      setBranchBinds(updatedBinds);
+                    }
+                  }
+                }}
+                className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                  isDark
+                    ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4]"
+                    : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb]"
+                } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              >
+                🔒 Lock In Bind
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                returnToInputState();
+                setTimeout(() => {
+                  const textarea = document.getElementById('chat-input-textarea') as HTMLTextAreaElement;
+                  if (textarea) {
+                    textarea.focus();
+                  }
+                }, 150);
+              }}
+              className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                isDark
+                  ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71]"
+                  : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
+              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+            >
+              {mode === "structured" ? "Continue" : "New Message"}
+            </button>
+            
+            {messages.length > 0 && mode === "ephemeral" && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePinConversation();
+                }}
+                className={`px-4 lg:px-5 py-2 lg:py-3 text-sm font-medium rounded-lg transition-all duration-300 ${
+                  isDark
+                    ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4]"
+                    : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
+                } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              >
+                📌 Pin & Switch to Structured
+              </button>
+            )}
+          </div>
+        )}
+        
         {/* One Bubble Chat Interface */}
         <ChatInterface
           showSettings={showSettings}
@@ -669,13 +1059,21 @@ function App() {
           handleNewConversation={handleNewConversation}
           mode={mode}
           handlePinConversation={handlePinConversation}
+          onCreateBind={handleCreateBind}
+          onLockBind={handleLockBind}
+          currentBindId={currentBindId}
+          isBindLocked={isBindLocked}
+          currentBranch={currentBranch}
+          onUpdateCurrentResponse={setCurrentResponse}
+          currentIdea={currentIdea}
+          branchBinds={branchBinds}
         />
 
         {/* Status bar */}
         <div className={`text-center mt-4 text-xs lg:text-sm ${
           isDark ? 'text-gray-300' : 'text-gray-600'
         }`}>
-          🔒 {mode === "ephemeral" 
+          🔒 {mode === "ephemeral"
             ? "Ephemeral session"
             : `Branch: ${currentBranch?.name || "Main"}`}
         </div>
@@ -827,6 +1225,207 @@ function App() {
           ConversationStore.getAvailableModels().find(model => model.id === pendingModelSelection)?.name || pendingModelSelection :
           ""}
       />
+      
+      {/* Edit Response Modal */}
+      {showEditResponseModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`p-6 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col ${
+            isDark ? "bg-gray-900/95 border-white/20" : "bg-white/95 border-black/20"
+          } backdrop-blur-xl border shadow-2xl`}>
+            <h3 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+              Edit AI Response
+            </h3>
+            <textarea
+              value={editingResponse}
+              onChange={(e) => setEditingResponse(e.target.value)}
+              className={`w-full flex-1 min-h-[300px] p-4 rounded-xl resize-none ${
+                isDark
+                  ? "bg-white/10 border-white/20 text-white placeholder-gray-400"
+                  : "bg-black/10 border-black/20 text-gray-900 placeholder-gray-600"
+              } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
+                isDark ? "focus:ring-yellow-500/50" : "focus:ring-yellow-500/50"
+              } mb-6`}
+              placeholder="Edit the AI response..."
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setCurrentResponse(editingResponse);
+                  setShowEditResponseModal(false);
+                }}
+                className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                  isDark
+                    ? "bg-yellow-500/30 hover:bg-yellow-500/40 text-yellow-300 border-yellow-500/30"
+                    : "bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-600 border-yellow-500/30"
+                } backdrop-blur-sm border hover:scale-105 active:scale-95 transform`}
+              >
+                Save Changes
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditResponseModal(false);
+                  setEditingResponse("");
+                }}
+                className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                  isDark
+                    ? "bg-white/10 hover:bg-white/20 text-gray-300 border-white/20"
+                    : "bg-black/10 hover:bg-black/20 text-gray-700 border-black/20"
+                } backdrop-blur-sm border hover:scale-105 active:scale-95 transform`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Retroactive Bind Creation Modal */}
+      {showRetroactiveBindModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`p-6 rounded-2xl w-full max-w-4xl max-h-[80vh] flex flex-col ${
+            isDark ? "bg-gray-900/95 border-white/20" : "bg-white/95 border-black/20"
+          } backdrop-blur-xl border shadow-2xl`}>
+            <h3 className={`text-xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-900"}`}>
+              Create Binds from Conversation History
+            </h3>
+            <p className={`text-sm mb-4 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+              Select message pairs from your conversation history to convert into binds. Each bind consists of a user message and the AI response that follows it.
+            </p>
+            
+            <div className="flex-1 overflow-y-auto mb-6">
+              {availableMessagePairs.length > 0 ? (
+                <div className="space-y-3">
+                  {availableMessagePairs.map((pair, pairIndex) => {
+                    const isSelected = selectedMessagePairs.some(selected =>
+                      selected.userMsg.id === pair.userMsg.id && selected.aiMsg.id === pair.aiMsg.id
+                    );
+                    
+                    return (
+                      <div
+                        key={`${pair.userMsg.id}-${pair.aiMsg.id}`}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all duration-300 ${
+                          isSelected
+                            ? isDark
+                              ? "bg-purple-500/20 border-purple-500/50"
+                              : "bg-purple-500/10 border-purple-500/40"
+                            : isDark
+                              ? "bg-white/5 border-white/10 hover:bg-white/10"
+                              : "bg-black/5 border-black/10 hover:bg-black/10"
+                        }`}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedMessagePairs(prev =>
+                              prev.filter(selected =>
+                                !(selected.userMsg.id === pair.userMsg.id && selected.aiMsg.id === pair.aiMsg.id)
+                              )
+                            );
+                          } else {
+                            setSelectedMessagePairs(prev => [...prev, {userMsg: pair.userMsg, aiMsg: pair.aiMsg}]);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-sm font-medium ${isDark ? "text-purple-300" : "text-purple-600"}`}>
+                            Message Pair #{pairIndex + 1}
+                          </span>
+                          {isSelected && (
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              isDark ? "bg-purple-500/30 text-purple-300" : "bg-purple-500/20 text-purple-600"
+                            }`}>
+                              Selected
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className={`p-2 rounded-lg ${isDark ? "bg-blue-500/10" : "bg-blue-500/5"}`}>
+                            <div className={`text-xs font-medium mb-1 ${isDark ? "text-blue-300" : "text-blue-600"}`}>
+                              👤 User:
+                            </div>
+                            <div className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                              {typeof pair.userMsg.content === 'string'
+                                ? pair.userMsg.content.substring(0, 150) + (pair.userMsg.content.length > 150 ? '...' : '')
+                                : '[Complex content]'
+                              }
+                            </div>
+                          </div>
+                          
+                          <div className={`p-2 rounded-lg ${isDark ? "bg-green-500/10" : "bg-green-500/5"}`}>
+                            <div className={`text-xs font-medium mb-1 ${isDark ? "text-green-300" : "text-green-600"}`}>
+                              🤖 Assistant:
+                            </div>
+                            <div className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
+                              {typeof pair.aiMsg.content === 'string'
+                                ? pair.aiMsg.content.substring(0, 150) + (pair.aiMsg.content.length > 150 ? '...' : '')
+                                : '[Complex content]'
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={`text-center py-8 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                  <p className="text-lg mb-2">📭 No message pairs available to convert</p>
+                  <p className="text-sm">
+                    {isInResponseMode
+                      ? "Complete your current response first, or all message pairs have already been converted to binds."
+                      : "All message pairs have already been converted to binds."
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  if (selectedMessagePairs.length > 0 && currentBranch) {
+                    try {
+                      for (const pair of selectedMessagePairs) {
+                        await ConversationStore.createBind(pair.userMsg, pair.aiMsg, currentBranch.id);
+                      }
+                      setSelectedMessagePairs([]);
+                      setShowRetroactiveBindModal(false);
+                      // Optionally show success message
+                      alert(`Successfully created ${selectedMessagePairs.length} bind(s) from conversation history!`);
+                    } catch (error) {
+                      console.error("Failed to create binds:", error);
+                      alert("Failed to create binds. Please try again.");
+                    }
+                  }
+                }}
+                disabled={selectedMessagePairs.length === 0}
+                className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                  selectedMessagePairs.length > 0
+                    ? isDark
+                      ? "bg-purple-500/30 hover:bg-purple-500/40 text-purple-300 border-purple-500/30"
+                      : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-600 border-purple-500/30"
+                    : "bg-gray-500/20 text-gray-500 border-gray-500/20 cursor-not-allowed"
+                } backdrop-blur-sm border hover:scale-105 active:scale-95 transform`}
+              >
+                Create {selectedMessagePairs.length} Bind{selectedMessagePairs.length !== 1 ? 's' : ''}
+              </button>
+              <button
+                onClick={() => {
+                  setShowRetroactiveBindModal(false);
+                  setSelectedMessagePairs([]);
+                }}
+                className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                  isDark
+                    ? "bg-white/10 hover:bg-white/20 text-gray-300 border-white/20"
+                    : "bg-black/10 hover:bg-black/20 text-gray-700 border-black/20"
+                } backdrop-blur-sm border hover:scale-105 active:scale-95 transform`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

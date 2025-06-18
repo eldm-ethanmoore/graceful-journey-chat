@@ -11,7 +11,7 @@ interface HeaderSectionProps {
   setIsDark: (isDark: boolean) => void
   hasConsented: boolean | null
   mode: "ephemeral" | "structured"
-  setMode: (mode: "ephemeral" | "structured") => void
+  setMode: (mode: "ephemeral" | "structured") => void | Promise<void>
   setShowBranchPanel: (show: boolean) => void
   setShowMobileMenu: (show: boolean) => void
   currentBranch: any
@@ -364,6 +364,27 @@ export const HeaderSection = ({
                 }}
               />
             </div>
+            
+            {/* Mobile model selector */}
+            <select
+              value={selectedModel}
+              onChange={(e) => {
+                const newModel = e.target.value;
+                setPendingModelSelection(newModel);
+                setShowModelSwitchModal(true);
+              }}
+              className={`px-2 py-2 text-xs rounded-lg transition-all duration-500 max-w-[120px] ${
+                isDark ? "bg-[#333333]/60 border-[#2ecc71]/30 text-[#f0f8ff]" : "bg-[#f0f8ff]/60 border-[#54ad95]/30 text-[#00171c]"
+              } backdrop-blur-sm border focus:outline-none focus:ring-2 ${
+                isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
+              }`}
+            >
+              {ConversationStore.getAvailableModels().map((model) => (
+                <option key={model.id} value={model.id} className={isDark ? "bg-gray-800" : "bg-white"}>
+                  {model.name.length > 15 ? model.name.substring(0, 12) + '...' : model.name}
+                </option>
+              ))}
+            </select>
             
             {/* Mobile theme toggle */}
             <button

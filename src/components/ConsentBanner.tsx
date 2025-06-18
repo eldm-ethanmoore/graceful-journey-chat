@@ -17,8 +17,8 @@ export const ConsentBanner = ({
     } backdrop-blur-xl`}>
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className={`text-sm ${isDark ? "text-white" : "text-gray-900"}`}>
-          We use localStorage to save your preferences (theme, model selection, and settings).
-          This data stays on your device and helps provide a personalized experience.
+          We collect basic analytics data including page views, session duration, and general usage patterns to improve the service.
+          We also use localStorage to save your preferences (theme, model selection, and settings) which stays on your device.
         </p>
         <div className="flex gap-2">
           <button

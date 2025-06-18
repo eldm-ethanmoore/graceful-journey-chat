@@ -53,6 +53,26 @@ export default tseslint.config({
 })
 ```
 
+## Features (Work in Progress)
+
+### Hierarchical Summaries
+
+**Status: WIP - Future Task**
+
+The application will support hierarchical summaries for:
+- **Bind Branch**: Automatic generation of nested summaries that bind related conversation branches together, creating a structured overview of related topics and their relationships.
+- **Idea**: Hierarchical organization of ideas within conversations, allowing for multi-level categorization and summary generation of conceptual threads.
+
+### Merging Branches
+
+**Status: WIP - Future Task**
+
+Branch merging functionality will allow users to:
+- Combine multiple conversation branches into a unified thread
+- Resolve conflicts between divergent conversation paths
+- Maintain conversation history and context during merge operations
+- Create consolidated summaries from merged branches
+
 ## Acknowledgements
 
 The beautiful liquid glass effect used in this application is based on the work of [lucasromerodb](https://github.com/lucasromerodb). You can find the original repository here: [liquid-glass-effect-macos](https://github.com/lucasromerodb/liquid-glass-effect-macos).

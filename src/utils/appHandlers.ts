@@ -11,7 +11,38 @@ export const handleBranchSelect = async (
   returnToInputState: () => void
 ) => {
   setCurrentBranch(branch)
-  setMessages(branch.messages)
+  
+  // Load branch-specific conversation context from binds
+  try {
+    // Get all binds for this branch from the database
+    const branchBinds = await ConversationStore.getBranchBinds(branch.id)
+    
+    if (branchBinds.length > 0) {
+      // Sort binds by creation date to maintain conversation order
+      const sortedBinds = branchBinds.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      
+      // Convert binds to messages for the chat interface
+      const messagesFromBinds = sortedBinds.flatMap(bind => [bind.userPrompt, bind.aiResponse])
+      setMessages(messagesFromBinds)
+    } else {
+      // Fallback to branch.messages if no binds exist (backward compatibility)
+      if (branch.messages) {
+        setMessages(branch.messages)
+      } else {
+        setMessages([])
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load branch binds:", error)
+    
+    // Fallback to branch.messages on error
+    if (branch.messages) {
+      setMessages(branch.messages)
+    } else {
+      setMessages([])
+    }
+  }
+  
   setMode("structured")
   returnToInputState()
 }
@@ -23,7 +54,10 @@ export const handleCreateBranch = async (
   setCurrentBranch: (branch: Branch) => void,
   setMode: (mode: "ephemeral" | "structured") => void
 ) => {
-  const newBranch = await ConversationStore.createBranch(name, messages, currentBranch?.id)
+  if (!currentBranch) {
+    throw new Error("No current branch to create from")
+  }
+  const newBranch = await ConversationStore.createBranch(name, messages, currentBranch.ideaId, currentBranch.id)
   setCurrentBranch(newBranch)
   setMode("structured")
 }
@@ -33,9 +67,18 @@ export const handlePinConversation = async (
   setCurrentBranch: (branch: Branch) => void,
   setMode: (mode: "ephemeral" | "structured") => void
 ) => {
-  const branch = await ConversationStore.createBranch("New Branch", messages)
-  setCurrentBranch(branch)
-  setMode("structured")
+  // Create a new idea for pinned conversations
+  const newIdea = await ConversationStore.createIdea("Pinned Conversation", "Conversation pinned from ephemeral mode")
+  const ideaBranches = await ConversationStore.getIdeaBranches(newIdea.id)
+  
+  if (ideaBranches.length > 0) {
+    // Update the main branch with the messages
+    const mainBranch = ideaBranches[0]
+    // Create a new branch with the messages in this idea
+    const updatedBranch = await ConversationStore.createBranch("Main", messages, newIdea.id)
+    setCurrentBranch(updatedBranch)
+    setMode("structured")
+  }
   // After pinning, stay in the same view but now in structured mode
 }
 

@@ -165,7 +165,7 @@ export const MobileBranchPanel = ({
                   <span className={`font-medium text-sm ${isDark ? "text-[#f0f8ff]" : "text-[#1a1d23]"}`}>
                     {branch.name}
                   </span>
-                  {branch.parentId && (
+                  {branch.parentBranchId && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       isDark ? "bg-[#2ecc71]/20 text-[#2ecc71]" : "bg-[#54ad95]/10 text-[#54ad95]"
                     }`}>
@@ -174,7 +174,7 @@ export const MobileBranchPanel = ({
                   )}
                 </div>
                 <p className={`text-xs ${isDark ? "text-[#f0f8ff]/70" : "text-[#1a1d23]/70"}`}>
-                  {branch.messages.length} msgs • {branch.createdAt.toLocaleDateString()}
+                  {(branch.messages?.length || branch.binds?.length || 0)} msgs • {branch.createdAt.toLocaleDateString()}
                 </p>
               </div>
             ))}
