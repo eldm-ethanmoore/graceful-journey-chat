@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message } from "./conversationStore"
-import { Plus, Camera, GitBranch } from "lucide-react"
+import { Plus, Camera, GitBranch, Pencil, Trash2, Check, X } from "lucide-react"
 
 interface BranchPanelProps {
   currentBranch: Branch | null
@@ -46,16 +46,23 @@ export function BranchPanel({
   const [branches, setBranches] = useState<Branch[]>([])
   const [showNewBranchDialog, setShowNewBranchDialog] = useState(false)
   const [newBranchName, setNewBranchName] = useState("")
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null)
+  const [editingBranchName, setEditingBranchName] = useState("")
   // expandedView is now controlled by parent component
-
-  useEffect(() => {
-    loadBranches()
-  }, [])
-
-  const loadBranches = async () => {
+  
+  const loadBranches = useCallback(async () => {
     const allBranches = await ConversationStore.getAllBranches()
     setBranches(allBranches)
-  }
+  }, [])
+
+  useEffect(() => {
+    ConversationStore.listenForChanges(loadBranches);
+    loadBranches();
+    
+    return () => {
+      ConversationStore.removeListener(loadBranches);
+    };
+  }, [loadBranches])
 
   const handleCreateBranch = async () => {
     if (newBranchName.trim()) {
@@ -73,6 +80,31 @@ export function BranchPanel({
       alert("Snapshot saved!")
     }
   }
+
+  const handleRenameBranch = async (branchId: string) => {
+    if (editingBranchName.trim()) {
+      await ConversationStore.renameBranch(branchId, editingBranchName);
+      setEditingBranchId(null);
+      setEditingBranchName("");
+      loadBranches();
+    }
+  };
+
+  const handleDeleteBranch = async (branchId: string) => {
+    if (window.confirm("Are you sure you want to delete this branch and all its children? This action cannot be undone.")) {
+      await ConversationStore.deleteBranch(branchId);
+      loadBranches();
+      // If the deleted branch was the current one, select the first available branch
+      if (currentBranch?.id === branchId) {
+        const allBranches = await ConversationStore.getAllBranches();
+        if (allBranches.length > 0) {
+          onBranchSelect(allBranches[0]);
+        } else {
+          // Handle case where no branches are left
+        }
+      }
+    }
+  };
 
   return (
     <div
@@ -146,9 +178,19 @@ export function BranchPanel({
             {branches.map((branch) => (
               <div
                 key={branch.id}
-                onClick={() => onBranchSelect(branch)}
-                className={`p-4 rounded-xl cursor-pointer transition-all duration-300 ${
-                  currentBranch?.id === branch.id
+                onClick={(e) => {
+                  // Prevent selection when clicking on buttons
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  if (editingBranchId !== branch.id) {
+                    onBranchSelect(branch);
+                  }
+                }}
+                className={`p-4 rounded-xl transition-all duration-300 group ${
+                  editingBranchId === branch.id
+                    ? isDark
+                      ? "bg-yellow-500/20 border-yellow-500/30"
+                      : "bg-yellow-500/10 border-yellow-500/20"
+                    : currentBranch?.id === branch.id
                     ? isDark
                       ? "bg-purple-500/30 border-purple-500/50 shadow-lg shadow-purple-500/20"
                       : "bg-indigo-500/20 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
@@ -157,25 +199,57 @@ export function BranchPanel({
                       : "bg-black/5 hover:bg-black/10 border-black/10 hover:border-black/20"
                 } backdrop-blur-sm border hover:scale-105 transform`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span
-                    className={`font-medium transition-colors duration-500 ${isDark ? "text-white" : "text-gray-900"}`}
-                  >
-                    {branch.name}
-                  </span>
-                  {branch.parentId && (
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full transition-colors duration-500 ${
-                        isDark ? "bg-yellow-500/20 text-yellow-300" : "bg-yellow-500/10 text-yellow-700"
+                {editingBranchId === branch.id ? (
+                  <div>
+                    <input
+                      type="text"
+                      value={editingBranchName}
+                      onChange={(e) => setEditingBranchName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleRenameBranch(branch.id)}
+                      className={`w-full px-3 py-2 rounded-md text-sm mb-2 ${
+                        isDark
+                          ? "bg-black/50 border-white/20 text-white"
+                          : "bg-white/50 border-black/20 text-black"
                       }`}
-                    >
-                      forked
-                    </span>
-                  )}
-                </div>
-                <p className={`text-xs transition-colors duration-500 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                  {branch.messages.length} msgs • {branch.createdAt.toLocaleDateString()}
-                </p>
+                      autoFocus
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => handleRenameBranch(branch.id)} className={`p-2 rounded-md ${isDark ? 'bg-green-500/30 hover:bg-green-500/40' : 'bg-green-500/20 hover:bg-green-500/30'}`}><Check className="w-4 h-4" /></button>
+                      <button onClick={() => setEditingBranchId(null)} className={`p-2 rounded-md ${isDark ? 'bg-red-500/30 hover:bg-red-500/40' : 'bg-red-500/20 hover:bg-red-500/30'}`}><X className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className={`font-medium transition-colors duration-500 ${isDark ? "text-white" : "text-gray-900"}`}
+                      >
+                        {branch.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingBranchId(branch.id);
+                            setEditingBranchName(branch.name);
+                          }}
+                          className={`p-1 rounded-md ${isDark ? 'hover:bg-white/20' : 'hover:bg-black/20'}`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBranch(branch.id)}
+                          className={`p-1 rounded-md ${isDark ? 'hover:bg-red-500/30' : 'hover:bg-red-500/20'}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className={`text-xs transition-colors duration-500 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                      {branch.messages.length} msgs • {branch.createdAt.toLocaleDateString()}
+                    </p>
+                  </>
+                )}
               </div>
             ))}
           </div>

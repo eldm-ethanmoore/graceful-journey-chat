@@ -14,7 +14,7 @@ export interface Branch {
 export interface Message {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  content: string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
   timestamp: Date;
   attestation?: any;
 }
@@ -54,15 +54,15 @@ export class ConversationStore {
     { id: "phala/qwen-2.5-7b-instruct", name: "Qwen 2.5 7B", description: "Efficient & capable" },
   ];
   private static openRouterModels = [
-    { id: "openai/gpt-4o", name: "OpenAI GPT-4o", description: "The latest and greatest from OpenAI" },
-    { id: "google/gemini-2.5-flash-preview-05-20", name: "Google Gemini 2.5 Flash (Preview)", description: "The latest flash model from Google" },
-    { id: "perplexity/sonar-deep-research", name: "Perplexity Sonar Deep Research", description: "For deep, research-based queries" },
+    { id: "openai/gpt-4o", name: "OpenAI GPT-4o", description: "The latest and greatest from OpenAI", supportsAttachments: true },
+    { id: "google/gemini-2.5-flash-preview-05-20", name: "Google Gemini 2.5 Flash (Preview)", description: "The latest flash model from Google", supportsAttachments: true },
+    { id: "perplexity/sonar-deep-research", name: "Perplexity Sonar Deep Research", description: "For deep, research-based queries", supportsAttachments: false },
   ];
 
   // Event listeners for sync
   private static listeners: (() => void)[] = [];
 
-  static getAvailableModels(): { id: string; name: string; description: string }[] {
+  static getAvailableModels(): { id: string; name: string; description: string; supportsAttachments?: boolean }[] {
     const models = [];
     if (this.redPillApiKey) {
       models.push(...this.teeModels);
@@ -145,6 +145,37 @@ export class ConversationStore {
     await db.branches.update(id, { messages })
   }
 
+  static async renameBranch(id: string, newName: string): Promise<void> {
+    await db.branches.update(id, { name: newName });
+    this.notifyListeners();
+  }
+
+  static async deleteBranch(id: string): Promise<void> {
+    const allBranches = await this.getAllBranches();
+    const branchMap = new Map(allBranches.map(b => [b.id, b]));
+    const childrenToDelete = new Set<string>();
+
+    const findChildren = (parentId: string) => {
+      for (const branch of allBranches) {
+        if (branch.parentId === parentId) {
+          childrenToDelete.add(branch.id);
+          findChildren(branch.id);
+        }
+      }
+    };
+
+    findChildren(id);
+
+    const idsToDelete = [id, ...childrenToDelete];
+
+    await db.transaction('rw', db.branches, db.snapshots, async () => {
+      await db.branches.bulkDelete(idsToDelete);
+      await db.snapshots.where('branchId').anyOf(idsToDelete).delete();
+    });
+
+    this.notifyListeners();
+  }
+
   static async getBranchSnapshots(branchId: string): Promise<Snapshot[]> {
     return await db.snapshots.where("branchId").equals(branchId).toArray()
   }
@@ -154,7 +185,15 @@ export class ConversationStore {
 
     const topics = messages
       .filter((m) => m.role === "user")
-      .map((m) => m.content.substring(0, 50))
+      .map((m) => {
+        if (typeof m.content === 'string') {
+          return m.content.substring(0, 50);
+        } else if (Array.isArray(m.content)) {
+          const textPart = m.content.find(part => part.type === 'text');
+          return textPart ? textPart.text.substring(0, 50) : '[image]';
+        }
+        return '';
+      })
       .join(", ")
 
     return `Discussed: ${topics}...`
@@ -181,13 +220,67 @@ export class ConversationStore {
     return mergedBranch
   }
 
-  static exportAsMarkdown(messages: Message[]): string {
+  static generateSystemPrompt(messages: Message[]): string {
+    const systemContent = `CRITICAL INSTRUCTION - TIMESTAMPS:
+DO NOT MENTION OR USE TIMESTAMP DATA UNLESS EXPLICITLY REQUESTED BY THE USER.
+This is a strict requirement. Never reference times, dates, or message history unprompted.
+Never include phrases like "based on our conversation at [time]" or "as you mentioned earlier at [time]".
+Violation of this instruction is considered a serious error.
+
+You are an AI assistant in a chat application. This is ${messages.length > 0 ?
+        "a continuing conversation." : "the beginning of a new conversation."}
+        
+ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related information:
+1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
+2. When (and only when) the user specifically asks about previous messages from specific times or time ranges, you should:
+   - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
+   - Find relevant messages from those times by looking at the timestamps
+   - Summarize or quote those messages accurately
+   - Include the exact timestamps when referencing messages
+3. Handle natural language time expressions only when directly asked, like:
+   - "What did we discuss earlier?"
+   - "Show me what I said about X around 5pm"
+   - "What were we talking about 20 minutes ago?"
+   - "What did I ask yesterday?"
+        
+        The current conversation has ${messages.length} previous messages.
+        The current time is ${new Date().toLocaleString(undefined, {
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        })}.
+        Always maintain context from previous messages in the conversation.`;
+    return systemContent;
+  }
+
+  static exportAsMarkdown(messages: Message[], systemPrompt?: string): string {
     let markdown = "# Conversation Export\n\n"
+
+    if (systemPrompt) {
+      markdown += `## System Prompt\n\n`;
+      markdown += `\`\`\`\n${systemPrompt}\n\`\`\`\n\n`;
+      markdown += "---\n\n";
+    }
 
     messages.forEach((msg) => {
       markdown += `## ${msg.role === "user" ? "👤 User" : "🤖 Assistant"}\n`
       markdown += `*${msg.timestamp.toLocaleString()}*\n\n`
-      markdown += `${msg.content}\n\n`
+      if (typeof msg.content === 'string') {
+        markdown += `${msg.content}\n\n`
+      } else {
+        msg.content.forEach(part => {
+          if (part.type === 'text') {
+            markdown += `${part.text}\n\n`;
+          } else if (part.type === 'image_url') {
+            markdown += `![Attached Image](${part.image_url.url})\n\n`;
+          }
+        });
+      }
       markdown += "---\n\n"
     })
 

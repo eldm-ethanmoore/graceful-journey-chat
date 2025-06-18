@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye } from "lucide-react"
+import { Sun, Moon, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye, Paperclip, Download } from "lucide-react"
 import { RainbowAuthUI } from "./components/RainbowAuthUI"
 import { CompactAuthButton } from "./components/CompactAuthButton"
 import { SendDataButton } from "./components/SendDataButton"
@@ -21,7 +21,7 @@ import gjPalmDark from "./assets/gj-palm-dark-mode.png"
 interface Message extends StoredMessage {
   id: string
   role: "user" | "assistant"
-  content: string
+  content: string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>
   timestamp: Date
   attestation?: AttestationData
 }
@@ -455,6 +455,8 @@ function App() {
   const [showSyncWarning, setShowSyncWarning] = useState(false)
   const [syncWarningAcknowledged, setSyncWarningAcknowledged] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachment, setAttachment] = useState<{ file: File; preview: string } | null>(null);
   
   // Context preview state
   const [showContextPreview, setShowContextPreview] = useState(false)
@@ -488,6 +490,7 @@ function App() {
   const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
   const [showTimestamps, setShowTimestamps] = useState(DEFAULT_SETTINGS.showTimestamps)
   const [hasConsented, setHasConsented] = useState<boolean | null>(DEFAULT_SETTINGS.hasConsented)
+  const [exportWithSystemPrompt, setExportWithSystemPrompt] = useState(DEFAULT_SETTINGS.exportWithSystemPrompt)
 
   // RedPill API configuration
   const REDPILL_API_URL = "https://api.redpill.ai/v1"
@@ -551,7 +554,8 @@ function App() {
       showTimestamps,
       isDark,
       selectedModel,
-      hasConsented
+      hasConsented,
+      exportWithSystemPrompt
     }
     
     // Always save the consent decision itself
@@ -566,7 +570,7 @@ function App() {
     } else {
       console.log("User preferences not saved due to consent settings")
     }
-  }, [temperature, maxTokens, enableTimestamps, showTimestamps, isDark, selectedModel, hasConsented])
+  }, [temperature, maxTokens, enableTimestamps, showTimestamps, isDark, selectedModel, hasConsented, exportWithSystemPrompt])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -675,7 +679,11 @@ function App() {
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
     
-    return `[TIME: ${timestamp}] ${msg.content}`;
+    const content = typeof msg.content === 'string'
+      ? msg.content
+      : (msg.content.find(c => c.type === 'text')?.text || '') + ' [image]';
+
+    return `[TIME: ${timestamp}] ${content}`;
   };
   
   // Generate context preview in Markdown format
@@ -722,14 +730,23 @@ Always maintain context from previous messages in the conversation.`;
     
     // Add conversation history in reverse chronological order
     const allMessages = [...messages];
-    if (input.trim()) {
-      // Add current input as a preview message to the end of the array
+    if (input.trim() || attachment) {
+      let content: Message['content'];
+      if (attachment) {
+        content = [{ type: 'text', text: input }];
+        content.push({
+          type: 'image_url',
+          image_url: { url: attachment.preview as string },
+        });
+      } else {
+        content = input;
+      }
       allMessages.push({
         id: "preview",
         role: "user",
-        content: input,
+        content: content,
         timestamp: new Date(),
-      });
+      } as Message);
     }
     
     // Reverse the array to display newest messages first
@@ -748,7 +765,10 @@ Always maintain context from previous messages in the conversation.`;
       // The message number is now relative to the reversed order
       markdownContent += `# ${message.role === "user" ? "User" : "Assistant"} Message (Newest #${index + 1})\n`;
       markdownContent += `[TIME: ${timestamp}]\n\n`;
-      markdownContent += `${message.content}\n\n`;
+      const content = typeof message.content === 'string'
+        ? message.content
+        : (message.content.find(c => c.type === 'text')?.text || '') + ' [image attached]';
+      markdownContent += `${content}\n\n`;
       markdownContent += "---\n\n";
     });
     
@@ -818,9 +838,9 @@ Always maintain context from previous messages in the conversation.`;
     const currentInput = input;
     
     // Don't proceed if there's no input, we're already loading, or there's no API key
-    if (!currentInput.trim() || isLoading || (!apiKey && !openRouterApiKey)) {
+    if ((!currentInput.trim() && !attachment) || isLoading || (!apiKey && !openRouterApiKey)) {
       console.log("Not sending message:", {
-        emptyInput: !currentInput.trim(),
+        emptyInput: !currentInput.trim() && !attachment,
         isLoading,
         noApiKey: !apiKey && !openRouterApiKey
       })
@@ -838,10 +858,21 @@ Always maintain context from previous messages in the conversation.`;
     
     // We no longer intercept history queries - let the LLM handle them
 
+    let messageContent: Message['content'];
+    if (attachment) {
+      messageContent = [{ type: 'text', text: currentInput }];
+      messageContent.push({
+        type: 'image_url',
+        image_url: { url: attachment.preview as string },
+      });
+    } else {
+      messageContent = currentInput;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: currentInput,
+      content: messageContent,
       timestamp: new Date(),
     }
 
@@ -852,6 +883,7 @@ Always maintain context from previous messages in the conversation.`;
     // Clear input and show thinking state
     // Clear input first to prevent "double send" issues
     setInput("");
+    setAttachment(null);
     
     // Then update UI state
     setCurrentResponse("Thinking...");
@@ -886,40 +918,7 @@ Always maintain context from previous messages in the conversation.`;
         // Create a more explicit system message about conversation history with time handling instructions
         const systemMessage = {
           role: "system",
-          content: `CRITICAL INSTRUCTION - TIMESTAMPS:
-DO NOT MENTION OR USE TIMESTAMP DATA UNLESS EXPLICITLY REQUESTED BY THE USER.
-This is a strict requirement. Never reference times, dates, or message history unprompted.
-Never include phrases like "based on our conversation at [time]" or "as you mentioned earlier at [time]".
-Violation of this instruction is considered a serious error.
-
-You are an AI assistant in a chat application. This is ${messages.length > 0 ?
-            "a continuing conversation." : "the beginning of a new conversation."}
-            
-ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related information:
-1. Each message includes a timestamp in the format [TIME: MM/DD/YYYY, HH:MM:SS AM/PM]
-2. When (and only when) the user specifically asks about previous messages from specific times or time ranges, you should:
-   - Identify the time references in their query (e.g., "5:30pm", "earlier today", "few minutes ago")
-   - Find relevant messages from those times by looking at the timestamps
-   - Summarize or quote those messages accurately
-   - Include the exact timestamps when referencing messages
-3. Handle natural language time expressions only when directly asked, like:
-   - "What did we discuss earlier?"
-   - "Show me what I said about X around 5pm"
-   - "What were we talking about 20 minutes ago?"
-   - "What did I ask yesterday?"
-            
-            The current conversation has ${messages.length} previous messages.
-            The current time is ${new Date().toLocaleString(undefined, {
-              year: 'numeric',
-              month: 'numeric',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true,
-              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-            })}.
-            Always maintain context from previous messages in the conversation.`
+          content: ConversationStore.generateSystemPrompt(messages)
         };
         
         // Make sure we're sending ALL previous messages to maintain conversation history
@@ -929,9 +928,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
         
         // Format messages for the API with explicit timestamps for all messages
         const timestampedMessages = allMessages.map(m => {
-          // For user messages, always add a clear TIME prefix
           if (m.role === "user") {
-            // Format timestamp with explicit options to ensure consistent display
             const timestamp = new Date(m.timestamp).toLocaleString(undefined, {
               year: 'numeric',
               month: 'numeric',
@@ -942,25 +939,23 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               hour12: true,
               timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
             });
-            
-            // Remove any existing timestamp format
-            const cleanedContent = m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]\s*/i, '');
-            
-            // Add the standardized TIME prefix
-            const content = `[TIME: ${timestamp}] ${cleanedContent}`;
-            console.log("Added standardized timestamp to message:", content);
-            
-            return {
-              role: m.role,
-              content: content
-            };
-          } else {
-            // For assistant messages, keep as is
-            return {
-              role: m.role,
-              content: m.content
-            };
+            let finalContent: Message['content'];
+
+            if (typeof m.content === 'string') {
+              const cleanedContent = m.content.replace(/^\[\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M\]\s*/i, '');
+              finalContent = `[TIME: ${timestamp}] ${cleanedContent}`;
+            } else {
+              // It's an array
+              finalContent = m.content.map(part => {
+                if (part.type === 'text') {
+                  return { ...part, text: `[TIME: ${timestamp}] ${part.text}` };
+                }
+                return part;
+              });
+            }
+            return { role: m.role, content: finalContent };
           }
+          return { role: m.role, content: m.content };
         });
         
         // Combine system message with the conversation history
@@ -1147,6 +1142,31 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
     handleNewConversation()
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachment({ file, preview: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleExport = () => {
+    const systemPrompt = exportWithSystemPrompt ? ConversationStore.generateSystemPrompt(messages) : undefined;
+    const markdown = ConversationStore.exportAsMarkdown(messages, systemPrompt);
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversation-${new Date().toISOString()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   // No need for explicit connect/disconnect functions with piping sync
   // The PipingSyncUI component handles these operations internally
 
@@ -1305,20 +1325,15 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
       </div>
 
       {/* Branch Panel */}
-      {mode === "structured" && (
-        <MobileBranchPanel
-          currentBranch={currentBranch}
-          onBranchSelect={handleBranchSelect}
-          onCreateBranch={handleCreateBranch}
-          messages={messages}
-          isDark={isDark}
-          isOpen={showBranchPanel}
-          onClose={() => setShowBranchPanel(false)}
-          setShowMobileMenu={setShowMobileMenu}
-          handleNewConversation={handleNewConversation}
-          setIsDark={setIsDark}
-        />
-      )}
+      <BranchPanel
+        currentBranch={currentBranch}
+        onBranchSelect={handleBranchSelect}
+        onCreateBranch={handleCreateBranch}
+        messages={messages}
+        isDark={isDark}
+        expandedView={showBranchPanel && mode === "structured"}
+        onClose={() => setShowBranchPanel(false)}
+      />
 
       {/* Header */}
       <div className={`transition-all duration-500 ${
@@ -2026,6 +2041,43 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                 </div>
               </div>
               
+              <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-500/20">
+                <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Export</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <label className={`text-sm font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                    Include system prompt in export
+                  </label>
+                  <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                    <input
+                      type="checkbox"
+                      id="toggle-export-system-prompt"
+                      checked={exportWithSystemPrompt}
+                      onChange={() => setExportWithSystemPrompt(!exportWithSystemPrompt)}
+                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                    />
+                    <label
+                      htmlFor="toggle-export-system-prompt"
+                      className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                        exportWithSystemPrompt
+                          ? isDark ? "bg-[#2ecc71]" : "bg-[#54ad95]"
+                          : isDark ? "bg-gray-600" : "bg-gray-300"
+                      }`}
+                    ></label>
+                  </div>
+                </div>
+                <button
+                  onClick={handleExport}
+                  disabled={messages.length === 0}
+                  className={`w-full px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
+                    isDark
+                      ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
+                      : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
+                  } backdrop-blur-sm border disabled:opacity-50`}
+                >
+                  <Download className="w-4 h-4" />
+                  Export as Markdown
+                </button>
+              </div>
               {/* No toggle buttons as requested */}
             </LiquidGlassWrapper>
           )}
@@ -2172,10 +2224,23 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
             </div>
           ) : (
             /* Input Mode */
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className={`flex-1 flex flex-col min-h-0 ${attachment ? 'justify-end' : 'justify-center'}`}>
               <div className="flex-1 flex items-center justify-center">
                 <div className="w-full max-w-2xl">
                   <div className="relative">
+                    {attachment && (
+                      <div className="p-2 bg-black/10 rounded-t-lg mb-2">
+                        <div className="relative inline-block">
+                          <img src={attachment.preview} alt="preview" className="h-24 w-24 object-cover rounded-md" />
+                          <button
+                            onClick={() => setAttachment(null)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 leading-none"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <textarea
                       ref={textareaRef}
                       value={input}
@@ -2192,26 +2257,48 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                         isDark
                           ? "bg-transparent text-white placeholder-gray-400"
                           : "bg-transparent text-gray-900 placeholder-gray-600"
-                      } text-base lg:text-lg leading-relaxed pr-12 lg:pr-20`}
+                      } text-base lg:text-lg leading-relaxed pr-24 lg:pr-40`}
                       style={{ minHeight: '60px', maxHeight: '120px' }}
                       rows={1}
                       autoFocus
                       id="chat-input-textarea"
                     />
                     
-                    {/* Send Button - Mobile floating */}
-                    <button
-                      onClick={sendMessage}
-                      disabled={isLoading || !input.trim()}
-                      className={`absolute bottom-2 right-2 p-2 lg:p-3 rounded-full transition-all duration-300 ${
-                        isDark
-                          ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                          : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                      } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
-                    >
-                      <Send className="w-4 h-4 lg:w-5 lg:h-5" />
-                      <span className="hidden lg:inline ml-2 text-sm font-medium">Send</span>
-                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                    />
+
+                    <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                      {ConversationStore.getAvailableModels().find(m => m.id === selectedModel)?.supportsAttachments && (
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          title="Attach an image (PNG, JPG, etc.)"
+                          className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
+                            isDark
+                              ? "bg-white/10 hover:bg-white/20 text-white"
+                              : "bg-black/10 hover:bg-black/20 text-black"
+                          }`}
+                        >
+                          <Paperclip className="w-4 h-4 lg:w-5 lg:h-5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={sendMessage}
+                        disabled={isLoading || (!input.trim() && !attachment)}
+                        className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
+                          isDark
+                            ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
+                            : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
+                        } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
+                      >
+                        <Send className="w-4 h-4 lg:w-5 lg:h-5" />
+                        <span className="hidden lg:inline ml-2 text-sm font-medium">Send</span>
+                      </button>
+                    </div>
                   </div>
                   
                   {/* Input hints */}

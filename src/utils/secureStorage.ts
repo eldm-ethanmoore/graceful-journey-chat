@@ -9,6 +9,7 @@ export interface AppSettings {
   isDark: boolean;           // Added for theme preference
   selectedModel: string;     // Added for model selection
   hasConsented: boolean | null; // Added for consent tracking (null = not decided)
+  exportWithSystemPrompt: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -18,7 +19,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showTimestamps: true,
   isDark: true,              // Default to dark mode
   selectedModel: "phala/llama-3.3-70b-instruct", // Default model
-  hasConsented: null         // Default to not decided
+  hasConsented: null,         // Default to not decided
+  exportWithSystemPrompt: false
 };
 
 export const secureStorage = {
