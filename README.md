@@ -52,3 +52,7 @@ export default tseslint.config({
   },
 })
 ```
+
+## Acknowledgements
+
+The beautiful liquid glass effect used in this application is based on the work of [lucasromerodb](https://github.com/lucasromerodb). You can find the original repository here: [liquid-glass-effect-macos](https://github.com/lucasromerodb/liquid-glass-effect-macos).

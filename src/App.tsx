@@ -15,6 +15,8 @@ import { ContextPreview } from "./ContextPreview"
 import { ModelSwitchConfirmModal } from "./ModelSwitchConfirmModal"
 import { PipingSyncManager } from './sync/PipingSyncManager';
 import { PipingSyncUI } from './components/PipingSyncUI';
+import gjPalmLight from "./assets/gj-palm-light-mode.png"
+import gjPalmDark from "./assets/gj-palm-dark-mode.png"
 
 interface Message extends StoredMessage {
   id: string
@@ -31,120 +33,109 @@ interface AttestationData {
   verified: boolean
 }
 
-const ApiKeyModal = ({ isOpen, onClose, onSave, isDark }: { 
-  isOpen: boolean, 
-  onClose: () => void, 
-  onSave: (key: string) => void, 
-  isDark: boolean 
+const ApiKeyModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  isDark,
+  initialRedPillKey,
+  initialOpenRouterKey,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (keys: { redpill: string; openrouter: string }) => void
+  isDark: boolean
+  initialRedPillKey: string | null
+  initialOpenRouterKey: string | null
 }) => {
-  const [apiKey, setApiKey] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [redPillApiKey, setRedPillApiKey] = useState("")
+  const [openRouterApiKey, setOpenRouterApiKey] = useState("")
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isOpen) {
+      setRedPillApiKey(initialRedPillKey || "")
+      setOpenRouterApiKey(initialOpenRouterKey || "")
+    }
+  }, [isOpen, initialRedPillKey, initialOpenRouterKey])
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!apiKey.trim()) {
-      setError('Please enter your RedPill API key')
-      return
-    }
-
-    setIsLoading(true)
-    setError('')
-
-    try {
-      const testResponse = await fetch('https://api.redpill.ai/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!testResponse.ok) {
-        throw new Error('Invalid API key')
-      }
-
-      onSave(apiKey)
-      onClose()
-    } catch (err) {
-      setError('Failed to verify API key. Please check your key and try again.')
-      console.error('API key verification failed:', err)
-    } finally {
-      setIsLoading(false)
-    }
+    onSave({ redpill: redPillApiKey, openrouter: openRouterApiKey })
+    onClose()
   }
 
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div 
-        className={`w-full max-w-sm rounded-2xl p-6 shadow-2xl transition-all duration-300 ${
-          isDark ? 'bg-[#333333] text-white' : 'bg-white text-gray-900'
+      <div
+        className={`w-full max-w-md rounded-2xl p-6 shadow-2xl transition-all duration-300 ${
+          isDark ? "bg-[#333333] text-white" : "bg-white text-gray-900"
         }`}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold">Enter API Key</h2>
-          <button 
+          <h2 className="text-lg font-bold">API Keys</h2>
+          <button
             onClick={onClose}
-            className={`p-1 rounded-full ${isDark ? 'hover:bg-[#444444]' : 'hover:bg-gray-100'}`}
+            className={`p-1 rounded-full ${isDark ? "hover:bg-[#444444]" : "hover:bg-gray-100"}`}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+              RedPill API Key
+            </label>
             <input
               type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              value={redPillApiKey}
+              onChange={(e) => setRedPillApiKey(e.target.value)}
               placeholder="sk-..."
               className={`w-full px-4 py-3 rounded-lg border text-base ${
                 isDark
-                  ? 'bg-[#444444] border-[#555555] text-white'
-                  : 'bg-white border-gray-300 text-gray-900'
+                  ? "bg-[#444444] border-[#555555] text-white"
+                  : "bg-white border-gray-300 text-gray-900"
               } focus:outline-none focus:ring-2 focus:ring-purple-500`}
               autoFocus
             />
-            {error && (
-              <p className="mt-1 text-sm text-red-400">{error}</p>
-            )}
           </div>
-          
-          <div className="flex justify-end gap-2">
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+              OpenRouter API Key
+            </label>
+            <input
+              type="password"
+              value={openRouterApiKey}
+              onChange={(e) => setOpenRouterApiKey(e.target.value)}
+              placeholder="sk-or-..."
+              className={`w-full px-4 py-3 rounded-lg border text-base ${
+                isDark
+                  ? "bg-[#444444] border-[#555555] text-white"
+                  : "bg-white border-gray-300 text-gray-900"
+              } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
             <button
               type="button"
               onClick={onClose}
               className={`px-4 py-2 rounded-lg ${
                 isDark
-                  ? 'bg-[#444444] hover:bg-[#555555] text-white'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                  ? "bg-[#444444] hover:bg-[#555555] text-white"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-800"
               }`}
-              disabled={isLoading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className={`px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-2 ${
-                isLoading ? 'opacity-70' : ''
-              }`}
-              disabled={isLoading}
+              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-2"
             >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <Key className="w-4 h-4" />
-                  Save API Key
-                </>
-              )}
+              <Key className="w-4 h-4" />
+              Save Keys
             </button>
           </div>
         </form>
@@ -456,8 +447,9 @@ function App() {
   const [isDark, setIsDark] = useState(true)
   const [isInResponseMode, setIsInResponseMode] = useState(false)
   const [currentResponse, setCurrentResponse] = useState("")
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
-  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [openRouterApiKey, setOpenRouterApiKey] = useState<string | null>(null);
   const [showBranchPanel, setShowBranchPanel] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showSyncWarning, setShowSyncWarning] = useState(false)
@@ -500,6 +492,7 @@ function App() {
   // RedPill API configuration
   const REDPILL_API_URL = "https://api.redpill.ai/v1"
   const DEFAULT_MODEL = "phala/llama-3.3-70b-instruct"
+  const OPENROUTER_API_URL = "https://openrouter.ai/api/v1"
 
   const TEE_MODELS = [
     { id: "phala/llama-3.3-70b-instruct", name: "Llama 3.3 70B", description: "Fast & multilingual" },
@@ -515,11 +508,18 @@ function App() {
 
   // Load API key on mount
   useEffect(() => {
-    const savedApiKey = secureStorage.get('redpill_api_key')
+    const savedApiKey = secureStorage.get('redpill_api_key');
+    const savedOpenRouterKey = secureStorage.get('openrouter_api_key');
+
     if (savedApiKey) {
-      setApiKey(savedApiKey)
-    } else {
-      setShowApiKeyModal(true)
+      setApiKey(savedApiKey);
+    }
+    if (savedOpenRouterKey) {
+      setOpenRouterApiKey(savedOpenRouterKey);
+    }
+
+    if (!savedApiKey && !savedOpenRouterKey) {
+      setShowApiKeyModal(true);
     }
     
     // Load saved settings
@@ -718,13 +718,12 @@ The current time is ${new Date().toLocaleString(undefined, {
 })}.
 Always maintain context from previous messages in the conversation.`;
     
-    // Format messages with timestamps
-    let markdownContent = systemContent + "\n\n";
+    let markdownContent = "";
     
-    // Add conversation history
+    // Add conversation history in reverse chronological order
     const allMessages = [...messages];
     if (input.trim()) {
-      // Add current input as a preview message
+      // Add current input as a preview message to the end of the array
       allMessages.push({
         id: "preview",
         role: "user",
@@ -733,7 +732,8 @@ Always maintain context from previous messages in the conversation.`;
       });
     }
     
-    allMessages.forEach((message, index) => {
+    // Reverse the array to display newest messages first
+    allMessages.reverse().forEach((message, index) => {
       const timestamp = new Date(message.timestamp).toLocaleString(undefined, {
         year: 'numeric',
         month: 'numeric',
@@ -745,11 +745,15 @@ Always maintain context from previous messages in the conversation.`;
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
       });
       
-      markdownContent += `# ${message.role === "user" ? "User" : "Assistant"} Message ${index + 1}\n`;
+      // The message number is now relative to the reversed order
+      markdownContent += `# ${message.role === "user" ? "User" : "Assistant"} Message (Newest #${index + 1})\n`;
       markdownContent += `[TIME: ${timestamp}]\n\n`;
       markdownContent += `${message.content}\n\n`;
       markdownContent += "---\n\n";
     });
+    
+    // Append the system prompt at the end
+    markdownContent += systemContent;
     
     return markdownContent;
   };
@@ -814,13 +818,13 @@ Always maintain context from previous messages in the conversation.`;
     const currentInput = input;
     
     // Don't proceed if there's no input, we're already loading, or there's no API key
-    if (!currentInput.trim() || isLoading || !apiKey) {
+    if (!currentInput.trim() || isLoading || (!apiKey && !openRouterApiKey)) {
       console.log("Not sending message:", {
         emptyInput: !currentInput.trim(),
         isLoading,
-        noApiKey: !apiKey
+        noApiKey: !apiKey && !openRouterApiKey
       })
-      if (!apiKey) setShowApiKeyModal(true)
+      if (!apiKey && !openRouterApiKey) setShowApiKeyModal(true)
       return
     }
     
@@ -963,19 +967,32 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
         apiMessages = [systemMessage, ...timestampedMessages];
       }
       
-      const response = await fetch(`${REDPILL_API_URL}/chat/completions`, {
+      const isRedPill = ConversationStore.isRedPillModel(selectedModel)
+      const apiUrl = isRedPill ? REDPILL_API_URL : OPENROUTER_API_URL
+      const activeApiKey = isRedPill ? apiKey : openRouterApiKey
+
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${activeApiKey}`,
+      }
+
+      if (!isRedPill) {
+        // OpenRouter requires these headers.
+        // Use a generic referrer or your app's actual URL.
+        headers["HTTP-Referer"] = "http://localhost:5173"
+        headers["X-Title"] = "Graceful Journey Chat"
+      }
+
+      const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: headers,
         body: JSON.stringify({
           model: selectedModel,
           messages: apiMessages,
           temperature: temperature,
           max_tokens: maxTokens,
           stream: false,
-        })
+        }),
       })
 
       if (!response.ok) {
@@ -1113,15 +1130,19 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
     // After pinning, stay in the same view but now in structured mode
   }
   
-  const handleSaveApiKey = (key: string) => {
-    secureStorage.set('redpill_api_key', key)
-    setApiKey(key)
-    setShowApiKeyModal(false)
-  }
+  const handleSaveApiKeys = (keys: { redpill: string; openrouter: string }) => {
+    ConversationStore.setRedPillApiKey(keys.redpill);
+    setApiKey(keys.redpill);
+    ConversationStore.setOpenRouterApiKey(keys.openrouter);
+    setOpenRouterApiKey(keys.openrouter);
+    setShowApiKeyModal(false);
+  };
   
   const handleLogout = () => {
-    secureStorage.remove('redpill_api_key')
-    setApiKey(null)
+    secureStorage.remove('redpill_api_key');
+    secureStorage.remove('openrouter_api_key');
+    setApiKey(null);
+    setOpenRouterApiKey(null);
     setShowApiKeyModal(true)
     handleNewConversation()
   }
@@ -1358,7 +1379,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               </button>
               
               <img
-                src={isDark ? "./src/assets/gj-palm-light-mode.png" : "./src/assets/gj-palm-dark-mode.png"}
+                src={isDark ? gjPalmLight : gjPalmDark}
                 alt="GJ Palm Logo"
                 className="w-6 h-6"
                 style={{
@@ -1511,7 +1532,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                   isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
                 }`}
               >
-                {TEE_MODELS.map((model) => (
+                {ConversationStore.getAvailableModels().map((model) => (
                   <option key={model.id} value={model.id} className={isDark ? "bg-gray-800" : "bg-white"}>
                     {model.name}
                   </option>
@@ -1744,7 +1765,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                   isDark ? "focus:ring-[#2ecc71]/50" : "focus:ring-[#54ad95]/50"
                 }`}
               >
-                {TEE_MODELS.map((model) => (
+                {ConversationStore.getAvailableModels().map((model) => (
                   <option key={model.id} value={model.id} className={isDark ? "bg-gray-800" : "bg-white"}>
                     {model.name}
                   </option>
@@ -1855,25 +1876,49 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
             >
               {/* Settings content - Authentication and Sync UI removed */}
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                    Temperature: {temperature}
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={temperature}
-                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
-                    Lower values = more focused, higher values = more creative
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* API Key Settings */}
+                <div className="md:col-span-2">
+                  <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>API Keys</h4>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => {
+                        setShowApiKeyModal(true);
+                      }}
+                      className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
+                        isDark
+                          ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
+                          : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
+                      } backdrop-blur-sm border`}
+                    >
+                      <Key className="w-4 h-4" />
+                      {apiKey || openRouterApiKey ? "Update" : "Set"} API Keys
+                    </button>
+                  </div>
                 </div>
-                
+
+                {/* Model Settings */}
+                <div className="md:col-span-2 pt-4 border-t border-gray-500/20">
+                  <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Model Settings</h4>
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
+                      Temperature: {temperature}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={temperature}
+                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <p className={`text-xs mt-1 ${isDark ? "text-gray-300" : "text-gray-600"}`}>
+                      Lower values = more focused, higher values = more creative
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
                     Max Tokens: {maxTokens}
@@ -2136,7 +2181,13 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder={messages.length === 0 ? "Start a private conversation..." : "Continue the conversation..."}
+                      placeholder={
+                        messages.length === 0
+                          ? ConversationStore.isRedPillModel(selectedModel)
+                            ? "Start a private conversation..."
+                            : "Ask me anything..."
+                          : "Continue the conversation..."
+                      }
                       className={`w-full resize-none outline-none transition-all duration-500 ${
                         isDark
                           ? "bg-transparent text-white placeholder-gray-400"
@@ -2230,7 +2281,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
           isDark ? 'text-gray-300' : 'text-gray-600'
         }`}>
           🔒 {mode === "ephemeral" 
-            ? "Ephemeral session • No history stored" 
+            ? "Ephemeral session"
             : `Branch: ${currentBranch?.name || "Main"}`}
         </div>
       </div>
@@ -2312,11 +2363,13 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
       `}</style>
 
       {/* API Key Modal */}
-      <ApiKeyModal 
-        isOpen={showApiKeyModal} 
+      <ApiKeyModal
+        isOpen={showApiKeyModal}
         onClose={() => setShowApiKeyModal(false)}
-        onSave={handleSaveApiKey}
+        onSave={handleSaveApiKeys}
         isDark={isDark}
+        initialRedPillKey={apiKey}
+        initialOpenRouterKey={openRouterApiKey}
       />
       
       {/* Consent Banner - only show if consent status is null (not decided) */}
@@ -2376,7 +2429,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
         }}
         isDark={isDark}
         newModelName={pendingModelSelection ?
-          TEE_MODELS.find(model => model.id === pendingModelSelection)?.name || pendingModelSelection :
+          ConversationStore.getAvailableModels().find(model => model.id === pendingModelSelection)?.name || pendingModelSelection :
           ""}
       />
     </div>

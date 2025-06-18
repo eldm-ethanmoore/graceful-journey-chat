@@ -1,49 +1,112 @@
-import Dexie from "dexie"
-import type { Table } from "dexie"
+import Dexie from "dexie";
+import type { Table } from "dexie";
+import { secureStorage } from "./utils/secureStorage";
 
 export interface Branch {
-  id: string
-  name: string
-  parentId?: string
-  messages: Message[]
-  createdAt: Date
-  summary?: string
+  id: string;
+  name: string;
+  parentId?: string;
+  messages: Message[];
+  createdAt: Date;
+  summary?: string;
 }
 
 export interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: Date
-  attestation?: any
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  attestation?: any;
 }
 
 export interface Snapshot {
-  id: string
-  branchId: string
-  messages: Message[]
-  timestamp: Date
-  description?: string
+  id: string;
+  branchId: string;
+  messages: Message[];
+  timestamp: Date;
+  description?: string;
 }
 
 class ConversationDatabase extends Dexie {
-  branches!: Table<Branch>
-  snapshots!: Table<Snapshot>
+  branches!: Table<Branch>;
+  snapshots!: Table<Snapshot>;
 
   constructor() {
-    super("GracefulJourneyDB")
+    super("GracefulJourneyDB");
     this.version(1).stores({
       branches: "id, parentId, createdAt",
       snapshots: "id, branchId, timestamp",
-    })
+    });
   }
 }
 
-export const db = new ConversationDatabase()
+export const db = new ConversationDatabase();
 
 export class ConversationStore {
+  // API Keys
+  private static redPillApiKey: string | null = secureStorage.get("redpill_api_key");
+  private static openRouterApiKey: string | null = secureStorage.get("openrouter_api_key");
+
+  // Models
+  private static teeModels = [
+    { id: "phala/llama-3.3-70b-instruct", name: "Llama 3.3 70B", description: "Fast & multilingual" },
+    { id: "phala/deepseek-r1-70b", name: "DeepSeek R1 70B", description: "Advanced reasoning" },
+    { id: "phala/qwen-2.5-7b-instruct", name: "Qwen 2.5 7B", description: "Efficient & capable" },
+  ];
+  private static openRouterModels = [
+    { id: "openai/gpt-4o", name: "OpenAI GPT-4o", description: "The latest and greatest from OpenAI" },
+    { id: "google/gemini-2.5-flash-preview-05-20", name: "Google Gemini 2.5 Flash (Preview)", description: "The latest flash model from Google" },
+    { id: "perplexity/sonar-deep-research", name: "Perplexity Sonar Deep Research", description: "For deep, research-based queries" },
+  ];
+
   // Event listeners for sync
   private static listeners: (() => void)[] = [];
+
+  static getAvailableModels(): { id: string; name: string; description: string }[] {
+    const models = [];
+    if (this.redPillApiKey) {
+      models.push(...this.teeModels);
+    }
+    if (this.openRouterApiKey) {
+      models.push(...this.openRouterModels);
+    }
+    return models;
+  }
+
+  static isRedPillModel(modelId: string): boolean {
+    return this.teeModels.some(model => model.id === modelId);
+  }
+
+  static setRedPillApiKey(key: string | null): void {
+    if (key) {
+      secureStorage.set("redpill_api_key", key);
+      this.redPillApiKey = key;
+    } else {
+      secureStorage.remove("redpill_api_key");
+      this.redPillApiKey = null;
+    }
+    this.notifyListeners();
+  }
+
+  static setOpenRouterApiKey(key: string | null): void {
+    if (key) {
+      secureStorage.set("openrouter_api_key", key);
+      this.openRouterApiKey = key;
+    } else {
+      secureStorage.remove("openrouter_api_key");
+      this.openRouterApiKey = null;
+    }
+    this.notifyListeners();
+  }
+
+  static getRedPillApiKey(): string | null {
+    return this.redPillApiKey;
+  }
+
+  static getOpenRouterApiKey(): string | null {
+    return this.openRouterApiKey;
+  }
+
   static async createBranch(name: string, parentMessages: Message[], parentBranchId?: string): Promise<Branch> {
     const branch: Branch = {
       id: `branch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
