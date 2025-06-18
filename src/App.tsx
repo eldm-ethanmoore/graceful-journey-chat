@@ -2090,21 +2090,6 @@ Always maintain context from previous messages in the conversation.`;
                 </div>
                 {/* No toggle buttons as requested */}
                 
-                {/* Close Settings Button - Always at bottom */}
-                <div className="mt-6 pt-4 border-t border-gray-500/20 sticky bottom-0 bg-inherit">
-                  <button
-                    onClick={() => setShowSettings(false)}
-                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
-                      isDark
-                        ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
-                        : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
-                    } backdrop-blur-sm border text-sm font-medium`}
-                  >
-                    <SettingsIcon className="w-4 h-4" />
-                    Close Settings
-                    <ChevronUp className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
             </LiquidGlassWrapper>
           )}
