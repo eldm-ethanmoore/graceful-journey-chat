@@ -136,3 +136,127 @@
     opacity: 1;
   }
 }
+
+
+
+
+.jellyfish-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.jellyfish-loader.dark {
+  background-color: rgba(46, 204, 113, 0.1);
+  box-shadow: 0 0 25px rgba(46, 204, 113, 0.3);
+}
+
+.jellyfish-loader.light {
+  background-color: rgba(3, 169, 244, 0.1);
+  box-shadow: 0 0 25px rgba(3, 169, 244, 0.3);
+}
+
+.jellyfish {
+  position: relative;
+  width: 80px;
+  height: 100px;
+  animation: float-rotate 6s ease-in-out infinite;
+}
+
+.jellyfish-bell {
+  width: 80px;
+  height: 60px;
+  border-radius: 50% 50% 20% 20%;
+  position: relative;
+  animation: pulse 1.5s ease-in-out infinite;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.jellyfish-loader.dark .jellyfish-bell {
+  background: radial-gradient(circle, rgba(46, 204, 113, 0.9) 0%, rgba(84, 173, 149, 0.7) 100%);
+  box-shadow: 0 0 15px rgba(46, 204, 113, 0.6), inset 0 -10px 15px rgba(0, 0, 0, 0.2);
+}
+
+.jellyfish-loader.light .jellyfish-bell {
+  background: radial-gradient(circle, rgba(3, 169, 244, 0.9) 0%, rgba(0, 136, 251, 0.7) 100%);
+  box-shadow: 0 0 15px rgba(3, 169, 244, 0.6), inset 0 -10px 15px rgba(0, 0, 0, 0.3);
+}
+
+.jellyfish-tentacles {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+}
+
+.tentacle {
+  width: 4px;
+  height: 50px;
+  border-radius: 0 0 4px 4px;
+  animation: flow 2s ease-in-out infinite;
+  transition: background 0.3s;
+}
+
+.jellyfish-loader.dark .tentacle {
+  background: linear-gradient(to bottom, rgba(0, 136, 251, 0.9), transparent);
+}
+
+.jellyfish-loader.light .tentacle {
+  background: linear-gradient(to bottom, rgba(46, 204, 113, 0.9), transparent);
+}
+
+.tentacle:nth-child(2) {
+  height: 60px;
+  animation-delay: -0.5s;
+  animation-duration: 2.5s;
+}
+
+.tentacle:nth-child(3) {
+  height: 55px;
+  animation-delay: -1s;
+  animation-duration: 2.2s;
+}
+
+.tentacle:nth-child(4) {
+  height: 65px;
+  animation-delay: -1.5s;
+  animation-duration: 2.8s;
+}
+
+@keyframes float-rotate {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(35deg);
+  }
+  75% {
+    transform: translateY(0) rotate(-30deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes flow {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    height: 50px;
+  }
+  50% {
+    transform: translateY(10px) rotate(5deg);
+    height: 60px;
+  }
+}

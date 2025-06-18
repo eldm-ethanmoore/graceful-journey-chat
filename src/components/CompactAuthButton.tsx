@@ -68,7 +68,6 @@ export const CompactAuthButton: React.FC<CompactAuthButtonProps> = ({
                       <path d="M20 12v4H6a2 2 0 0 0-2 2c0 1.1.9 2 2 2h12v-4" />
                       <path d="M20 12h2v4h-2v-4Z" />
                     </svg>
-                    <span className="hidden sm:inline">Connect</span>
                   </button>
                 );
               }

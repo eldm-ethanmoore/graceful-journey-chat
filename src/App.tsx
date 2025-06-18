@@ -440,6 +440,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [attestation, setAttestation] = useState<AttestationData | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null)
@@ -494,7 +495,7 @@ function App() {
 
   // RedPill API configuration
   const REDPILL_API_URL = "https://api.redpill.ai/v1"
-  const DEFAULT_MODEL = "phala/llama-3.3-70b-instruct"
+  const DEFAULT_MODEL = "openai/gpt-4o"
   const OPENROUTER_API_URL = "https://openrouter.ai/api/v1"
 
   const TEE_MODELS = [
@@ -792,7 +793,8 @@ Always maintain context from previous messages in the conversation.`;
       
       if (section.startsWith("System Message")) {
         // Parse system message
-        const content = section.replace("System Message", "").trim();
+        let content = section.replace("System Message", "").trim();
+        content = content.replace(/---\s*$/g, "").trim();
         systemMessage = {
           role: "system",
           content: content
@@ -825,12 +827,17 @@ Always maintain context from previous messages in the conversation.`;
       }
     }
     
+    // Reverse the messages to get chronological order (oldest to newest)
+    const chronologicalMessages = messages.reverse();
+
     // Ensure system message is first
-    const result = systemMessage ? [systemMessage, ...messages] : messages;
+    const result = systemMessage ? [systemMessage, ...chronologicalMessages] : chronologicalMessages;
     return result;
   };
 
   const sendMessage = async () => {
+    const controller = new AbortController();
+    setAbortController(controller);
     console.log("sendMessage called with input:", input)
     
     // Store the current input value to ensure we use it throughout this function
@@ -988,6 +995,7 @@ Always maintain context from previous messages in the conversation.`;
           max_tokens: maxTokens,
           stream: false,
         }),
+        signal: controller.signal,
       })
 
       if (!response.ok) {
@@ -1007,7 +1015,7 @@ Always maintain context from previous messages in the conversation.`;
       }
 
       // Add the assistant's response to the messages array
-      const finalMessages = [...messages, assistantMessage];
+      const finalMessages = [...updatedMessages, assistantMessage];
       
       // Always update the messages array to preserve conversation history
       setMessages(finalMessages);
@@ -1026,12 +1034,22 @@ Always maintain context from previous messages in the conversation.`;
       }
     } catch (error: any) {
       console.error("Failed to send message:", error)
-      const errorMessage = error.message || "Failed to send message. Please check your API key and connection."
-      setCurrentResponse(`Error: ${errorMessage}`)
+      if (error.name === 'AbortError') {
+        setCurrentResponse("Request cancelled.");
+      } else {
+        const errorMessage = error.message || "Failed to send message. Please check your API key and connection."
+        setCurrentResponse(`Error: ${errorMessage}`)
+      }
     } finally {
       setIsLoading(false)
     }
   }
+
+  const handleCancel = () => {
+    if (abortController) {
+      abortController.abort();
+    }
+  };
 
   const returnToInputState = () => {
     console.log("Returning to input state")
@@ -1227,7 +1245,7 @@ Always maintain context from previous messages in the conversation.`;
     : "bg-gradient-to-br from-[#f7f8f9] via-[#f0f8ff]/70 to-[#f7f8f9]"
 
   return (
-    <div className={`min-h-screen transition-all duration-1000 ${themeClasses} flex flex-col relative overflow-hidden`}>
+    <div className={`min-h-screen transition-all duration-1000 ${themeClasses} flex flex-col justify-center relative overflow-hidden`}>
       {/* Sync Warning Modal */}
       {showSyncWarning && (
         <>
@@ -1413,7 +1431,7 @@ Always maintain context from previous messages in the conversation.`;
             {/* Right side - Desktop controls */}
             <div className="hidden lg:flex items-center gap-3">
               {/* Wallet Connect Button */}
-              <div className="flex items-center">
+              <div className="flex items-center ml-12">
                 <CompactAuthButton
                   isDark={isDark}
                 />
@@ -1456,20 +1474,6 @@ Always maintain context from previous messages in the conversation.`;
                 />
               </div>
               
-              {/* Settings Button */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`p-2 rounded-lg transition-colors duration-300 ${
-                    isDark
-                      ? "bg-[#03a9f4]/20 hover:bg-[#03a9f4]/30 text-[#03a9f4]"
-                      : "bg-[#0088fb]/10 hover:bg-[#0088fb]/20 text-[#0088fb]"
-                  } flex items-center gap-1`}
-                  title="Settings"
-                >
-                  <SettingsIcon className="w-4 h-4" />
-                </button>
-              </div>
               
               {/* Mode Switcher */}
               <div className={`flex rounded-xl p-1 transition-all duration-500 ${
@@ -1576,7 +1580,7 @@ Always maintain context from previous messages in the conversation.`;
                   </div>
                 )}
               </div>
-              {apiKey ? (
+              {apiKey || openRouterApiKey ? (
                 <button
                   onClick={handleLogout}
                   className={`px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-500 ${
@@ -1604,9 +1608,11 @@ Always maintain context from previous messages in the conversation.`;
             {/* Mobile Controls */}
             <div className="flex items-center gap-2 lg:hidden">
               {/* Wallet Connect Button - Mobile */}
-              <CompactAuthButton
-                isDark={isDark}
-              />
+              <div className="ml-8">
+                <CompactAuthButton
+                  isDark={isDark}
+                />
+              </div>
               
               {/* Sync Buttons - Mobile */}
               <div className="flex items-center gap-1">
@@ -1829,7 +1835,7 @@ Always maintain context from previous messages in the conversation.`;
                 New Conversation
               </button>
 
-              {apiKey ? (
+              {apiKey || openRouterApiKey ? (
                 <button
                   onClick={handleLogout}
                   className={`w-full px-4 py-3 text-sm font-medium rounded-xl ${
@@ -1862,7 +1868,9 @@ Always maintain context from previous messages in the conversation.`;
 
       {/* Main Content Area */}
       <div
-        className="flex-1 flex flex-col px-4 py-4 lg:py-8 max-w-4xl mx-auto w-full relative z-10"
+        className={`flex-1 flex flex-col justify-center px-4 py-4 lg:py-8 max-w-4xl mx-auto w-full relative z-10 transition-all duration-300 ${
+          showSettings ? 'transform translate-y-[10%]' : 'transform -translate-y-[15%]'
+        }`}
         onClick={() => {
           if (showBranchPanel) {
             setShowBranchPanel(false);
@@ -1870,7 +1878,7 @@ Always maintain context from previous messages in the conversation.`;
         }}
       >
         {/* Settings Dropdown */}
-        <div className="mb-4">
+        <div className={`mb-4 transition-all duration-300 ${showSettings ? 'mb-12' : ''}`}>
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
@@ -1886,12 +1894,14 @@ Always maintain context from previous messages in the conversation.`;
           
           {showSettings && (
             <LiquidGlassWrapper
-              className="settings-panel mt-2 p-4 rounded-xl"
+              className="settings-panel mt-2 rounded-xl max-h-[35vh] overflow-hidden"
               isDark={isDark}
             >
-              {/* Settings content - Authentication and Sync UI removed */}
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Scrollable content wrapper */}
+              <div className="max-h-[35vh] overflow-y-auto p-4">
+                {/* Settings content - Authentication and Sync UI removed */}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* API Key Settings */}
                 <div className="md:col-span-2">
                   <h4 className={`text-base font-semibold mb-3 ${isDark ? "text-gray-100" : "text-gray-800"}`}>API Keys</h4>
@@ -2077,22 +2087,39 @@ Always maintain context from previous messages in the conversation.`;
                   <Download className="w-4 h-4" />
                   Export as Markdown
                 </button>
+                </div>
+                {/* No toggle buttons as requested */}
+                
+                {/* Close Settings Button - Always at bottom */}
+                <div className="mt-6 pt-4 border-t border-gray-500/20 sticky bottom-0 bg-inherit">
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
+                      isDark
+                        ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff] border-[#2ecc71]/30"
+                        : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c] border-[#54ad95]/30"
+                    } backdrop-blur-sm border text-sm font-medium`}
+                  >
+                    <SettingsIcon className="w-4 h-4" />
+                    Close Settings
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              {/* No toggle buttons as requested */}
             </LiquidGlassWrapper>
           )}
         </div>
         
         {/* One Bubble Chat Interface */}
-        <div className="flex-1 overflow-hidden">
+        <div className={`transition-all duration-300 ${showSettings ? 'h-[30vh] mt-6' : 'h-[41vh]'}`}>
           <LiquidGlassWrapper
-            className="chat-box rounded-2xl p-4 lg:p-6 overflow-hidden flex flex-col min-h-0 w-full h-full"
+            className="chat-box rounded-2xl p-4 lg:p-6 overflow-hidden flex flex-col min-h-0 w-full h-full items-center justify-center"
             isDark={isDark}
           >
           
           {isInResponseMode ? (
             <div
-              className="flex-1 overflow-y-auto flex items-center justify-center min-h-0"
+              className="flex-1 overflow-y-auto flex flex-col justify-between items-center min-h-0 w-full"
               tabIndex={0} // Make div focusable
               onKeyDown={(e) => { // Add keyboard handler directly to response div
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -2102,16 +2129,32 @@ Always maintain context from previous messages in the conversation.`;
               }}
             >
               {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                <div className="flex flex-col items-center gap-4">
+                  <div className={`jellyfish-loader ${isDark ? 'dark' : 'light'}`}>
+                    <div className="jellyfish">
+                      <div className="jellyfish-bell"></div>
+                      <div className="jellyfish-tentacles">
+                        <div className="tentacle"></div>
+                        <div className="tentacle"></div>
+                        <div className="tentacle"></div>
+                        <div className="tentacle"></div>
+                      </div>
+                    </div>
                   </div>
+                  <button
+                    onClick={handleCancel}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                      isDark
+                        ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30"
+                        : "bg-red-500/20 hover:bg-red-500/30 text-red-600 border-red-500/30"
+                    } backdrop-blur-sm border`}
+                  >
+                    Cancel
+                  </button>
                 </div>
               ) : (
                 <div
-                  className="w-full"
+                  className="w-full flex flex-col items-center flex-1"
                   onClick={() => {
                     // Add click handler to entire response area
                     // Double-click anywhere on the response to return to input mode
@@ -2122,7 +2165,7 @@ Always maintain context from previous messages in the conversation.`;
                     returnToInputState();
                   }}
                 >
-                  <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh]`}>
+                  <div className={`prose prose-sm lg:prose-lg max-w-none w-full ${isDark ? 'text-white' : 'text-gray-900'} overflow-y-auto max-h-[60vh] text-center`}>
                     {enableTimestamps && showTimestamps && messages.length > 0 && messages[messages.length - 1].timestamp && (
                       <div className={`text-xs mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                         {new Date(messages[messages.length - 1].timestamp).toLocaleString(undefined, {
@@ -2183,8 +2226,8 @@ Always maintain context from previous messages in the conversation.`;
                     </ReactMarkdown>
                   </div>
                   
-                  {/* Response Actions */}
-                  <div className="mt-4 lg:mt-6 pt-4 border-t border-gray-500/20 flex flex-col sm:flex-row justify-center gap-3">
+                  {/* Response Actions - positioned at bottom center */}
+                  <div className="mt-4 lg:mt-6 pt-4 border-t border-gray-500/20 flex justify-center gap-3">
                     <button
                       onClick={() => {
                         console.log("New Message button clicked");
@@ -2202,7 +2245,7 @@ Always maintain context from previous messages in the conversation.`;
                         isDark
                           ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71]"
                           : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
-                      } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
+                      } backdrop-blur-sm hover:scale-105 active:scale-95`}
                     >
                       New Message (or press Enter)
                     </button>
@@ -2213,7 +2256,7 @@ Always maintain context from previous messages in the conversation.`;
                           isDark
                             ? "bg-[#03a9f4]/30 hover:bg-[#03a9f4]/40 text-[#03a9f4]"
                             : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95]"
-                        } backdrop-blur-sm hover:scale-105 active:scale-95 flex-1 sm:flex-none`}
+                        } backdrop-blur-sm hover:scale-105 active:scale-95`}
                       >
                         📌 Save
                       </button>
@@ -2224,140 +2267,148 @@ Always maintain context from previous messages in the conversation.`;
             </div>
           ) : (
             /* Input Mode */
-            <div className={`flex-1 flex flex-col min-h-0 ${attachment ? 'justify-end' : 'justify-center'}`}>
-              <div className="flex-1 flex items-center justify-center">
-                <div className="w-full max-w-2xl">
-                  <div className="relative">
-                    {attachment && (
-                      <div className="p-2 bg-black/10 rounded-t-lg mb-2">
-                        <div className="relative inline-block">
-                          <img src={attachment.preview} alt="preview" className="h-24 w-24 object-cover rounded-md" />
-                          <button
-                            onClick={() => setAttachment(null)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 leading-none"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    <textarea
-                      ref={textareaRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={
-                        messages.length === 0
-                          ? ConversationStore.isRedPillModel(selectedModel)
-                            ? "Start a private conversation..."
-                            : "Ask me anything..."
-                          : "Continue the conversation..."
-                      }
-                      className={`w-full resize-none outline-none transition-all duration-500 ${
-                        isDark
-                          ? "bg-transparent text-white placeholder-gray-400"
-                          : "bg-transparent text-gray-900 placeholder-gray-600"
-                      } text-base lg:text-lg leading-relaxed pr-24 lg:pr-40`}
-                      style={{ minHeight: '60px', maxHeight: '120px' }}
-                      rows={1}
-                      autoFocus
-                      id="chat-input-textarea"
-                    />
-                    
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileSelect}
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                    />
-
-                    <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                      {ConversationStore.getAvailableModels().find(m => m.id === selectedModel)?.supportsAttachments && (
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          title="Attach an image (PNG, JPG, etc.)"
-                          className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
-                            isDark
-                              ? "bg-white/10 hover:bg-white/20 text-white"
-                              : "bg-black/10 hover:bg-black/20 text-black"
-                          }`}
-                        >
-                          <Paperclip className="w-4 h-4 lg:w-5 lg:h-5" />
-                        </button>
-                      )}
+            <div className={`flex-1 flex flex-col min-h-0 items-center justify-evenly`}>
+              {/* Attachment preview - positioned at top center */}
+              {attachment && (
+                <div className="p-4 flex justify-center">
+                  <div className="p-2 bg-black/10 rounded-lg">
+                    <div className="relative inline-block">
+                      <img src={attachment.preview} alt="preview" className="h-24 w-24 object-cover rounded-md" />
                       <button
-                        onClick={sendMessage}
-                        disabled={isLoading || (!input.trim() && !attachment)}
-                        className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
-                          isDark
-                            ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
-                            : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
-                        } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
+                        onClick={() => setAttachment(null)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 leading-none"
                       >
-                        <Send className="w-4 h-4 lg:w-5 lg:h-5" />
-                        <span className="hidden lg:inline ml-2 text-sm font-medium">Send</span>
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+              
+              {/* Main input area - centered position */}
+              <div className="flex-1 flex items-center justify-center px-4 mb-6">
+                <div className="w-full max-w-2xl text-center">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={
+                      messages.length === 0
+                        ? ConversationStore.isRedPillModel(selectedModel)
+                          ? "Start a private conversation..."
+                          : "Ask me anything..."
+                        : "Reply..."
+                    }
+                    className={`w-full resize-none outline-none transition-all duration-500 ${
+                      isDark
+                        ? "bg-transparent text-white placeholder-gray-400"
+                        : "bg-transparent text-gray-900 placeholder-gray-600"
+                    } text-base lg:text-lg leading-relaxed text-center`}
+                    style={{ minHeight: '60px', maxHeight: '120px' }}
+                    rows={1}
+                    autoFocus
+                    id="chat-input-textarea"
+                  />
                   
-                  {/* Input hints */}
-                  <div className="flex items-center justify-between mt-3 text-xs lg:text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className={`${isDark ? 'text-gray-300' : 'text-gray-400'}`}>
-                        ⏎ to send • ⇧⏎ for new line
-                      </span>
-                      <button
-                        onClick={() => {
-                          // Generate context preview content if not already edited
-                          if (!isContextEdited) {
-                            const previewContent = generateContextPreview();
-                            setContextPreviewContent(previewContent);
-                          }
-                          setShowContextPreview(!showContextPreview);
-                        }}
-                        className={`px-2 py-1 text-xs rounded transition-all duration-300 flex items-center gap-1 ${
-                          isDark
-                            ? `${showContextPreview ? "bg-[#2ecc71]/30" : "bg-[#333333]/60"} hover:bg-[#444444]/80 text-[#f0f8ff]`
-                            : `${showContextPreview ? "bg-[#54ad95]/20" : "bg-[#f0f8ff]/60"} hover:bg-[#f0f8ff]/80 text-[#00171c]`
-                        } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                      >
-                        <Eye className="w-3 h-3" />
-                        {showContextPreview ? "Hide Context" : "Show Context"}
-                      </button>
-                    </div>
-                    {messages.length > 0 && (
-                      <button
-                        onClick={handleNewConversation}
-                        className={`px-2 py-1 text-xs rounded transition-all duration-300 ${
-                          isDark
-                            ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff]"
-                            : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c]"
-                        } backdrop-blur-sm hover:scale-105 active:scale-95`}
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                  
-                  {/* Context Preview */}
-                  <ContextPreview
-                    isOpen={showContextPreview}
-                    content={contextPreviewContent}
-                    isDark={isDark}
-                    onContentChange={(content) => {
-                      setContextPreviewContent(content);
-                      setIsContextEdited(true);
-                    }}
-                    onClose={() => setShowContextPreview(false)}
-                    onReset={() => {
-                      const previewContent = generateContextPreview();
-                      setContextPreviewContent(previewContent);
-                      setIsContextEdited(false);
-                    }}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    accept="image/*"
+                    style={{ display: 'none' }}
                   />
                 </div>
               </div>
+              
+              {/* Action buttons - moved down, positioned in the middle horizontally */}
+              <div className="px-4 flex justify-center mb-6">
+                <div className="flex items-center gap-2">
+                  {ConversationStore.getAvailableModels().find(m => m.id === selectedModel)?.supportsAttachments && (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Attach an image (PNG, JPG, etc.)"
+                      className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
+                        isDark
+                          ? "bg-white/10 hover:bg-white/20 text-white"
+                          : "bg-black/10 hover:bg-black/20 text-black"
+                      }`}
+                    >
+                      <Paperclip className="w-4 h-4 lg:w-5 lg:h-5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={sendMessage}
+                    disabled={isLoading || (!input.trim() && !attachment)}
+                    className={`p-2 lg:p-3 rounded-full transition-all duration-300 ${
+                      isDark
+                        ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
+                        : "bg-[#54ad95]/20 hover:bg-[#54ad95]/30 text-[#54ad95] border-[#54ad95]/30"
+                    } backdrop-blur-sm border disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 lg:rounded-lg lg:px-4 lg:py-2`}
+                  >
+                    <Send className="w-4 h-4 lg:w-5 lg:h-5" />
+                    <span className="hidden lg:inline ml-2 text-sm font-medium">Send</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Input hints and controls - moved down to the very bottom, centered */}
+              <div className="px-4 pb-1 flex justify-center mt-4">
+                <div className="w-full max-w-2xl flex items-center justify-center gap-4 text-xs lg:text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`${isDark ? 'text-gray-300' : 'text-gray-400'}`}>
+                      ⏎ to send • ⇧⏎ for new line
+                    </span>
+                    <button
+                      onClick={() => {
+                        // Generate context preview content if not already edited
+                        if (!isContextEdited) {
+                          const previewContent = generateContextPreview();
+                          setContextPreviewContent(previewContent);
+                        }
+                        setShowContextPreview(!showContextPreview);
+                      }}
+                      className={`px-2 py-1 text-xs rounded transition-all duration-300 flex items-center gap-1 ${
+                        isDark
+                          ? `${showContextPreview ? "bg-[#2ecc71]/30" : "bg-[#333333]/60"} hover:bg-[#444444]/80 text-[#f0f8ff]`
+                          : `${showContextPreview ? "bg-[#54ad95]/20" : "bg-[#f0f8ff]/60"} hover:bg-[#f0f8ff]/80 text-[#00171c]`
+                      } backdrop-blur-sm hover:scale-105 active:scale-95`}
+                    >
+                      <Eye className="w-3 h-3" />
+                      {showContextPreview ? "Hide Context" : "Show Context"}
+                    </button>
+                  </div>
+                  {messages.length > 0 && (
+                    <button
+                      onClick={handleNewConversation}
+                      className={`px-2 py-1 text-xs rounded transition-all duration-300 ${
+                        isDark
+                          ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#f0f8ff]"
+                          : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#00171c]"
+                      } backdrop-blur-sm hover:scale-105 active:scale-95`}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Context Preview */}
+              <ContextPreview
+                isOpen={showContextPreview}
+                content={contextPreviewContent}
+                isDark={isDark}
+                onContentChange={(content) => {
+                  setContextPreviewContent(content);
+                  setIsContextEdited(true);
+                }}
+                onClose={() => setShowContextPreview(false)}
+                onReset={() => {
+                  const previewContent = generateContextPreview();
+                  setContextPreviewContent(previewContent);
+                  setIsContextEdited(false);
+                }}
+              />
             </div>
           )}
           </LiquidGlassWrapper>
