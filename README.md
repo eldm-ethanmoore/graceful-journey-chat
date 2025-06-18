@@ -1,4 +1,57 @@
-# React + TypeScript + Vite
+# Graceful Journey Chat
+
+A conversation management platform built for structured AI interactions using a branching system that lets you explore multiple conversation paths.
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (version 18 or higher)
+- npm or yarn package manager
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd graceful-journey-chat
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+### Running the Project
+
+#### Development Mode
+Start the development server with hot reload:
+```bash
+npm run dev
+```
+The application will be available at `http://localhost:5173`
+
+#### Production Build
+Build the project for production:
+```bash
+npm run build
+```
+
+#### Preview Production Build
+Preview the production build locally:
+```bash
+npm run preview
+```
+
+### API Key Setup
+
+API keys are configured through the application interface:
+1. Launch the application
+2. Click the API key settings button in the interface
+3. Enter your RedPill AI and/or OpenRouter API keys
+4. Keys are securely stored in browser localStorage
+
+## Technical Details
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
