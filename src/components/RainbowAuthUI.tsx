@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 import { Wallet } from 'lucide-react';
 
 // Define props for the RainbowAuthUI component
@@ -17,14 +18,25 @@ export const RainbowAuthUI: React.FC<RainbowAuthUIProps> = ({
   authServerUrl,
   onAuthChange
 }) => {
-  // Notify parent component when mounted
+  const { isConnected } = useAccount();
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  // Monitor connection status and notify parent component
   useEffect(() => {
     if (onAuthChange) {
-      // We'll consider the user authenticated when the component mounts
-      // In a real app, you'd check the actual connection status
-      onAuthChange(false);
+      onAuthChange(isConnected || false);
     }
-  }, [onAuthChange]);
+    
+    // Log connection status for debugging
+    console.log("Wallet connection status:", isConnected ? "Connected" : "Disconnected");
+  }, [isConnected, onAuthChange]);
+
+  // Handle connection errors
+  useEffect(() => {
+    if (connectionError) {
+      console.error("Wallet connection error:", connectionError);
+    }
+  }, [connectionError]);
   
   return (
     <div className={`p-4 rounded-xl transition-all duration-500 ${
@@ -39,14 +51,25 @@ export const RainbowAuthUI: React.FC<RainbowAuthUIProps> = ({
       
       {/* RainbowKit Connect Button */}
       <div className="my-4">
-        <ConnectButton
-          chainStatus="icon"
-          showBalance={false}
-          accountStatus={{
-            smallScreen: 'avatar',
-            largeScreen: 'full',
-          }}
-        />
+        <div className="flex flex-col items-center">
+          <div className="mb-2">
+            <ConnectButton
+              chainStatus="icon"
+              showBalance={false}
+              accountStatus={{
+                smallScreen: 'avatar',
+                largeScreen: 'full',
+              }}
+            />
+          </div>
+          <div className="text-xs text-center mt-2">
+            <p className={isDark ? "text-gray-400" : "text-gray-500"}>
+              {isConnected ?
+                "Wallet connected successfully" :
+                "Connect your wallet for enhanced features"}
+            </p>
+          </div>
+        </div>
       </div>
       
       {/* Information Text */}

@@ -25,6 +25,7 @@ export class PipingSyncManager extends EventEmitter {
   private isSending = false;
   private isReceiving = false;
   private pipingServerUrl: string;
+  private currentSendPath: string | null = null;
 
   /**
    * Create a new PipingSyncManager
@@ -101,6 +102,7 @@ export class PipingSyncManager extends EventEmitter {
 
       // Generate or use provided path
       const pipingPath = path || this.generateRandomPath();
+      this.currentSendPath = pipingPath; // Store the current path
       const pipingUrl = `${this.pipingServerUrl}/${pipingPath}`;
       
       console.log(`PipingSyncManager: Using piping path: ${pipingPath}`);
@@ -124,9 +126,9 @@ export class PipingSyncManager extends EventEmitter {
         throw new Error(`Failed to send data: ${response.status} ${response.statusText}`);
       }
 
-      console.log("PipingSyncManager: Data sent successfully");
-      this.emit('send-completed');
-      this.isSending = false;
+      console.log("PipingSyncManager: Data sent successfully, keeping connection open");
+      // Don't set isSending to false or emit send-completed here
+      // The connection needs to stay open until stopSending is called
       
       return pipingPath;
     } catch (error: any) {
@@ -151,6 +153,9 @@ export class PipingSyncManager extends EventEmitter {
     // First set the flag to false to prevent race conditions
     this.isSending = false;
     
+    // Clear the current send path
+    this.currentSendPath = null;
+    
     // Then abort the controller if it exists
     if (this.sendAbortController) {
       try {
@@ -164,6 +169,14 @@ export class PipingSyncManager extends EventEmitter {
     
     // Emit send-completed event to ensure UI is updated
     this.emit('send-completed');
+  }
+  
+  /**
+   * Get the current send path
+   * @returns The current send path or null if not sending
+   */
+  getCurrentSendPath(): string | null {
+    return this.currentSendPath;
   }
 
   /**

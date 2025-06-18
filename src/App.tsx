@@ -3,8 +3,11 @@ import ReactMarkdown from "react-markdown"
 import { BranchPanel } from "./BranchPanel"
 import { ConversationStore } from "./conversationStore"
 import type { Branch, Message as StoredMessage } from "./conversationStore"
-import { Sun, Moon, Sparkles, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye } from "lucide-react"
+import { Sun, Moon, Key, X, Menu, Send, Plus, Camera, GitBranch, ChevronDown, ChevronUp, Settings as SettingsIcon, Eye } from "lucide-react"
 import { RainbowAuthUI } from "./components/RainbowAuthUI"
+import { CompactAuthButton } from "./components/CompactAuthButton"
+import { SendDataButton } from "./components/SendDataButton"
+import { ReceiveDataButton } from "./components/ReceiveDataButton"
 import { LiquidGlassWrapper } from "./components/LiquidGlassWrapper"
 import { secureStorage, DEFAULT_SETTINGS } from "./utils/secureStorage"
 import type { AppSettings } from "./utils/secureStorage"
@@ -457,6 +460,8 @@ function App() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [showBranchPanel, setShowBranchPanel] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [showSyncWarning, setShowSyncWarning] = useState(false)
+  const [syncWarningAcknowledged, setSyncWarningAcknowledged] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   
   // Context preview state
@@ -474,9 +479,19 @@ function App() {
   const showAuthUI = true
   const [temperature, setTemperature] = useState(DEFAULT_SETTINGS.temperature)
   const [pipingSyncManager] = useState(() => new PipingSyncManager(ConversationStore));
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [isReceiving, setIsReceiving] = useState(false);
   const [isPipingSyncAvailable, setIsPipingSyncAvailable] = useState(true);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [pendingSendAction, setPendingSendAction] = useState(false);
+  const [pendingReceiveAction, setPendingReceiveAction] = useState<string | null>(null);
+  
+  // Reset acknowledgment when syncing stops
+  useEffect(() => {
+    if (!isSending && !isReceiving) {
+      setSyncWarningAcknowledged(false);
+    }
+  }, [isSending, isReceiving]);
   const [maxTokens, setMaxTokens] = useState(DEFAULT_SETTINGS.maxTokens)
   const [enableTimestamps, setEnableTimestamps] = useState(DEFAULT_SETTINGS.enableTimestamps)
   const [showTimestamps, setShowTimestamps] = useState(DEFAULT_SETTINGS.showTimestamps)
@@ -566,23 +581,23 @@ function App() {
     // Check if Piping Sync is available
     setIsPipingSyncAvailable(pipingSyncManager.isAvailable());
     
-    const handleSendStarted = () => setIsSyncing(true);
+    const handleSendStarted = () => setIsSending(true);
     const handleSendCompleted = () => {
-      setIsSyncing(false);
+      setIsSending(false);
       setSyncError(null);
     };
-    const handleReceiveStarted = () => setIsSyncing(true);
+    const handleReceiveStarted = () => setIsReceiving(true);
     const handleReceiveCompleted = () => {
-      setIsSyncing(false);
+      setIsReceiving(false);
       setSyncError(null);
     };
     const handleSendError = (error: Error) => {
       setSyncError(error.message);
-      setIsSyncing(false);
+      setIsSending(false);
     };
     const handleReceiveError = (error: Error) => {
       setSyncError(error.message);
-      setIsSyncing(false);
+      setIsReceiving(false);
     };
 
     pipingSyncManager.on('send-started', handleSendStarted);
@@ -1172,6 +1187,80 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
 
   return (
     <div className={`min-h-screen transition-all duration-1000 ${themeClasses} flex flex-col relative overflow-hidden`}>
+      {/* Sync Warning Modal */}
+      {showSyncWarning && (
+        <>
+          {/* Full-screen overlay to block interaction */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"></div>
+          
+          {/* Centered modal */}
+          <div className="fixed inset-0 flex items-start justify-center z-50 pt-20">
+            <LiquidGlassWrapper
+              className="p-5 rounded-xl shadow-lg max-w-sm mx-4"
+              isDark={isDark}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <h3 className={`text-base font-bold ${isDark ? "text-red-300" : "text-red-600"}`}>
+                  ⚠️ SECURITY WARNING
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowSyncWarning(false);
+                    setPendingSendAction(false);
+                    setPendingReceiveAction(null);
+                  }}
+                  className={`p-1 rounded-full ${isDark ? "hover:bg-white/10" : "hover:bg-black/10"}`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <p className={`text-sm mb-4 ${isDark ? "text-white/90" : "text-black/90"} font-medium`}>
+                The sync feature uses ppng.io which is <span className="text-red-500 font-bold">NOT ENCRYPTED</span>.
+                Your data will be stored on ppng servers and is <span className="underline">not secure</span>.
+                Anyone with the sync code can access your data.
+              </p>
+              <div className="flex justify-between gap-3">
+                <button
+                  onClick={() => {
+                    setShowSyncWarning(false);
+                    setPendingSendAction(false);
+                    setPendingReceiveAction(null);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium flex-1 ${
+                    isDark
+                      ? "bg-red-500/30 hover:bg-red-500/40 text-red-300 border-red-500/30"
+                      : "bg-red-500/20 hover:bg-red-500/30 text-red-600 border-red-500/30"
+                  } backdrop-blur-sm border`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSyncWarning(false);
+                    setSyncWarningAcknowledged(true);
+                    
+                    // Execute the pending action
+                    if (pendingSendAction) {
+                      pipingSyncManager.startSending();
+                      setPendingSendAction(false);
+                    } else if (pendingReceiveAction) {
+                      pipingSyncManager.startReceiving(pendingReceiveAction);
+                      setPendingReceiveAction(null);
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium flex-1 ${
+                    isDark
+                      ? "bg-[#2ecc71]/30 hover:bg-[#2ecc71]/40 text-[#2ecc71] border-[#2ecc71]/30"
+                      : "bg-[#0088fb]/20 hover:bg-[#0088fb]/30 text-[#0088fb] border-[#0088fb]/30"
+                  } backdrop-blur-sm border`}
+                >
+                  Continue
+                </button>
+              </div>
+            </LiquidGlassWrapper>
+          </div>
+        </>
+      )}
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
@@ -1268,10 +1357,17 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                 </svg>
               </button>
               
-              <Sparkles className={`w-6 h-6 transition-colors duration-500 ${
-                isDark ? "text-[#2ecc71]" : "text-[#0088fb]"
-              }`} />
-              <h1 className={`text-lg lg:text-2xl font-bold transition-colors duration-500 ${
+              <img
+                src={isDark ? "./src/assets/gj-palm-light-mode.png" : "./src/assets/gj-palm-dark-mode.png"}
+                alt="GJ Palm Logo"
+                className="w-6 h-6"
+                style={{
+                  filter: isDark
+                    ? "brightness(0) saturate(100%) invert(64%) sepia(69%) saturate(458%) hue-rotate(93deg) brightness(95%) contrast(89%)" // Green for dark mode (#2ecc71)
+                    : "brightness(0) saturate(100%) invert(47%) sepia(97%) saturate(1917%) hue-rotate(190deg) brightness(97%) contrast(101%)" // Blue for light mode (#0088fb)
+                }}
+              />
+              <h1 className={`text-xs lg:text-sm font-bold transition-colors duration-500 ${
                 isDark ? "text-white" : "text-gray-900"
               }`}>
                 Graceful Journey Chat
@@ -1280,6 +1376,50 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
 
             {/* Right side - Desktop controls */}
             <div className="hidden lg:flex items-center gap-3">
+              {/* Wallet Connect Button */}
+              <div className="flex items-center">
+                <CompactAuthButton
+                  isDark={isDark}
+                />
+              </div>
+              
+              {/* Sync Buttons */}
+              <div className="flex items-center gap-2">
+                <SendDataButton
+                  isDark={isDark}
+                  isSending={isSending}
+                  syncCode={isSending ? pipingSyncManager.getCurrentSendPath() : undefined}
+                  onClick={() => {
+                    if (!isSending) {
+                      if (syncWarningAcknowledged) {
+                        pipingSyncManager.startSending();
+                      } else {
+                        setPendingSendAction(true);
+                        setShowSyncWarning(true);
+                      }
+                    } else {
+                      pipingSyncManager.stopSending();
+                    }
+                  }}
+                />
+                <ReceiveDataButton
+                  isDark={isDark}
+                  isReceiving={isReceiving}
+                  onClick={(path) => {
+                    if (!isReceiving && path) {
+                      if (syncWarningAcknowledged) {
+                        pipingSyncManager.startReceiving(path);
+                      } else {
+                        setPendingReceiveAction(path);
+                        setShowSyncWarning(true);
+                      }
+                    } else if (isReceiving) {
+                      pipingSyncManager.stopReceiving();
+                    }
+                  }}
+                />
+              </div>
+              
               {/* Settings Button */}
               <div className="flex items-center gap-2">
                 <button
@@ -1289,7 +1429,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
                       ? "bg-[#03a9f4]/20 hover:bg-[#03a9f4]/30 text-[#03a9f4]"
                       : "bg-[#0088fb]/10 hover:bg-[#0088fb]/20 text-[#0088fb]"
                   } flex items-center gap-1`}
-                  title="Settings & Piping Sync"
+                  title="Settings"
                 >
                   <SettingsIcon className="w-4 h-4" />
                 </button>
@@ -1425,24 +1565,69 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               )}
             </div>
 
-            {/* Mobile theme toggle */}
-            <button
-              onClick={() => {
-                const newTheme = !isDark;
-                setIsDark(newTheme);
-                
-                // Theme change is always applied for current session
-                // but only saved if user has consented
-                if (hasConsented) {
-                  console.log("Saving theme preference (mobile):", newTheme);
-                }
-              }}
-              className={`p-2 rounded-xl transition-all duration-500 ${
-                isDark ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
-              } backdrop-blur-sm border ${isDark ? "border-[#2ecc71]/30" : "border-[#54ad95]/30"} lg:hidden`}
-            >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+            {/* Mobile Controls */}
+            <div className="flex items-center gap-2 lg:hidden">
+              {/* Wallet Connect Button - Mobile */}
+              <CompactAuthButton
+                isDark={isDark}
+              />
+              
+              {/* Sync Buttons - Mobile */}
+              <div className="flex items-center gap-1">
+                <SendDataButton
+                  isDark={isDark}
+                  isSending={isSending}
+                  syncCode={isSending ? pipingSyncManager.getCurrentSendPath() : undefined}
+                  onClick={() => {
+                    if (!isSending) {
+                      if (syncWarningAcknowledged) {
+                        pipingSyncManager.startSending();
+                      } else {
+                        setPendingSendAction(true);
+                        setShowSyncWarning(true);
+                      }
+                    } else {
+                      pipingSyncManager.stopSending();
+                    }
+                  }}
+                />
+                <ReceiveDataButton
+                  isDark={isDark}
+                  isReceiving={isReceiving}
+                  onClick={(path) => {
+                    if (!isReceiving && path) {
+                      if (syncWarningAcknowledged) {
+                        pipingSyncManager.startReceiving(path);
+                      } else {
+                        setPendingReceiveAction(path);
+                        setShowSyncWarning(true);
+                      }
+                    } else if (isReceiving) {
+                      pipingSyncManager.stopReceiving();
+                    }
+                  }}
+                />
+              </div>
+              
+              {/* Mobile theme toggle */}
+              <button
+                onClick={() => {
+                  const newTheme = !isDark;
+                  setIsDark(newTheme);
+                  
+                  // Theme change is always applied for current session
+                  // but only saved if user has consented
+                  if (hasConsented) {
+                    console.log("Saving theme preference (mobile):", newTheme);
+                  }
+                }}
+                className={`p-2 rounded-xl transition-all duration-500 ${
+                  isDark ? "bg-[#333333]/60 hover:bg-[#444444]/80 text-[#2ecc71]" : "bg-[#f0f8ff]/60 hover:bg-[#f0f8ff]/80 text-[#54ad95]"
+                } backdrop-blur-sm border ${isDark ? "border-[#2ecc71]/30" : "border-[#54ad95]/30"}`}
+              >
+                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1490,7 +1675,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               {/* Settings Button for Mobile */}
               <div className="mb-3">
                 <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  Settings & Piping Sync
+                  Settings
                 </h3>
                 <div className="grid grid-cols-1 gap-2">
                   <button
@@ -1659,7 +1844,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
             } backdrop-blur-sm border text-sm font-medium`}
           >
             <SettingsIcon className="w-4 h-4" />
-            Settings & Piping Sync
+            Settings
             {showSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
           
@@ -1668,38 +1853,7 @@ ONLY IF THE USER EXPLICITLY ASKS about previous messages or time-related informa
               className="settings-panel mt-2 p-4 rounded-xl"
               isDark={isDark}
             >
-              {/* Authentication UI */}
-              {showAuthUI && (
-                <div className="mb-4">
-                  <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                    Optional Wallet Authentication
-                  </h3>
-                  <p className={`text-xs mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                    Connect your wallet for additional features. This is optional and not required to use the app.
-                  </p>
-                  <RainbowAuthUI
-                    isDark={isDark}
-                    authServerUrl="https://0bjtaos0w3.execute-api.us-east-1.amazonaws.com/verify"
-                    onAuthChange={(isAuthenticated) => {
-                      console.log("Auth state changed:", isAuthenticated);
-                    }}
-                  />
-                </div>
-              )}
-              
-              {/* QR Code Sync UI */}
-              <div className="mb-4">
-                <h3 className={`text-sm font-medium mb-2 ${isDark ? "text-gray-200" : "text-gray-700"}`}>
-                  Piping Server Synchronization
-                </h3>
-                <PipingSyncUI
-                  isDark={isDark}
-                  pipingSyncManager={pipingSyncManager}
-                  isSyncing={isSyncing}
-                  isAvailable={isPipingSyncAvailable}
-                  error={syncError}
-                />
-              </div>
+              {/* Settings content - Authentication and Sync UI removed */}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
