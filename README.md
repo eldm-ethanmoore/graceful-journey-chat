@@ -129,3 +129,8 @@ Branch merging functionality will allow users to:
 ## Acknowledgements
 
 The beautiful liquid glass effect used in this application is based on the work of [lucasromerodb](https://github.com/lucasromerodb). You can find the original repository here: [liquid-glass-effect-macos](https://github.com/lucasromerodb/liquid-glass-effect-macos).
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
